@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "llm4papers"
+version = "0.1.0"
+description = "Use an LLM to interactively edit a paper."
+authors = ["Jordan Matelsky <opensource@matelsky.com>"]
+license = "Apache 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+guidance = "^0.0.61"
+pydantic = "^1.10.8"
+gitpython = "^3.1.31"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.0.270"
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
