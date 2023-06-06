@@ -1,0 +1,40 @@
+name: Ruff Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, '3.10']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+
+      - name: Install dependencies
+        run: |
+          source $HOME/.poetry/env
+          poetry install
+
+      - name: Run Ruff
+        env:
+          RUFF_PATH: .
+        run: |
+          source $HOME/.poetry/env
+          poetry run ruff
