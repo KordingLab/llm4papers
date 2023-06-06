@@ -3,14 +3,15 @@ This file includes the PaperManager, types, as well as other systems to edit an
 academic paper using a large language model AI.
 """
 import json
-import shutil
-import pathlib
-import time
-from pydantic import BaseModel, Field
-from typing import Protocol
-from git import Repo
-import guidance
 import logging
+import pathlib
+import shutil
+import time
+from typing import Protocol
+
+import guidance
+from git import Repo
+from pydantic import BaseModel, Field
 
 from llm4papers.config import OpenAIConfig, Settings
 from llm4papers.prompts import ChatPrompts

@@ -1,5 +1,5 @@
-from llm4papers.models import JSONFilePaperManager, OverleafGitPaperRemote
 from llm4papers.config import Settings
+from llm4papers.models import JSONFilePaperManager, OverleafGitPaperRemote
 
 if __name__ == "__main__":
     manager = JSONFilePaperManager()
