@@ -4,13 +4,11 @@ import pathlib
 import time
 from typing import Protocol
 
-
-from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
-from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.paper_remote import OverleafGitPaperRemote, PaperRemote
-
 from llm4papers.config import OpenAIConfig
-
+from llm4papers.editor_agents.EditorAgent import EditorAgent
+from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
+from llm4papers.paper_remote import PaperRemote
+from llm4papers.paper_remote.OverleafGitPaperRemote import OverleafGitPaperRemote
 
 # Logging info:
 logger = logging.getLogger(__name__)

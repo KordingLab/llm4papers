@@ -2,13 +2,12 @@
 
 This is a simple plugin for Overleaf (and, maybe, other editors in the future) that allows you to edit a document with LLMs (Large Language Models) in an intuitive and unintrusive way.
 
-
 https://github.com/KordingLab/llm4papers/assets/693511/a642c534-50d7-4feb-aa16-d53ab8825279
-
 
 ## How to use
 
 -   Clone and install dependencies (`poetry install`)
+-   Populate a `config.py` file with your credentials (see `config.example.py`)
 -   Add a new `paper` to the paper manifest (right now, can be done at startup or manually by editing the papers manifest JSON)
 -   Run the server from this repository (`poetry run python3 llm4papers/service.py`)
 -   Open the paper in Overleaf and edit as you usually would. When you want to invoke the AI assistant, add a comment with the following format: `@ai: <command>`. For example, `the brain is weird. % @ai: formalize this`

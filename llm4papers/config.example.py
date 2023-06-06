@@ -14,3 +14,6 @@ class Settings(BaseSettings):
 
     # How often to poll for new edits.
     polling_interval_sec = 10
+
+    # The name of the JSON manifest file to use, if using the JSONPapersManager
+    json_manifest_file = "papers_manifest.json"
