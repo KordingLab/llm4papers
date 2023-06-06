@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, '3.10']
+        python-version: ['3.10']
 
     steps:
       - name: Checkout
@@ -25,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
-        run: curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+        run: curl -sSL https://install.python-poetry.org/ | python
 
       - name: Install dependencies
         run: |
