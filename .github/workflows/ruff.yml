@@ -29,12 +29,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          source $HOME/.poetry/env
           poetry install
 
       - name: Run Ruff
         env:
           RUFF_PATH: .
         run: |
-          source $HOME/.poetry/env
           poetry run ruff
