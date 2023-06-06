@@ -2,6 +2,10 @@
 
 This is a simple plugin for Overleaf (and, maybe, other editors in the future) that allows you to edit a document with LLMs (Large Language Models) in an intuitive and unintrusive way.
 
+
+https://github.com/KordingLab/llm4papers/assets/693511/a642c534-50d7-4feb-aa16-d53ab8825279
+
+
 ## How to use
 
 -   Clone and install dependencies (`poetry install`)
