@@ -60,10 +60,17 @@ class OpenAIChatEditorAgent(EditorAgent):
         return True
 
     def edit(self, document: Document, edit: EditRequest) -> str:
-        guidance.llm = guidance.llms.OpenAI("gpt-3.5-turbo", **self._openai_kwargs)
+        guidance.llm = guidance.llms.OpenAI(
+            "gpt-3.5-turbo",
+            **self._openai_kwargs,
+        )
         document_context = document.lines[
-            max(edit.line_range[0] - Settings().context_radius, 0) : min(
-                edit.line_range[1] + Settings().context_radius, len(document.lines)
+            max(
+                edit.line_range[0] - Settings().context_radius,
+                0,
+            ) : min(
+                edit.line_range[1] + Settings().context_radius,
+                len(document.lines),
             )
         ]
         editor = guidance.Program(ChatPrompts.BASIC_v1)
@@ -128,13 +135,15 @@ class OverleafGitPaperRemote(PaperRemote):
             self._repo.remotes.origin.pull(force=True)
             try:
                 self._repo.git.stash("pop")
-            except:
+            except Exception as e:
                 # TODO: this just means there was nothing to pop, but
                 # we should handle this more gracefully.
+                logger.debug(f"Nothing to pop: {e}")
                 pass
         except Exception as e:
             logger.error(
-                f"Error pulling from repo {self._reposlug}: {e}. Falling back on DESTRUCTION"
+                f"Error pulling from repo {self._reposlug}: {e}. "
+                "Falling back on DESTRUCTION!!!"
             )
             # Recursively delete the repo and try again.
             self._repo.close()
@@ -173,7 +182,10 @@ class OverleafGitPaperRemote(PaperRemote):
         raise ValueError("No edit requests found.")
 
     def dict(self):
-        return {"git_repo": self._repo.remotes.origin.url, "repo_slug": self._reposlug}
+        return {
+            "git_repo": self._repo.remotes.origin.url,
+            "repo_slug": self._reposlug,
+        }
 
     def perform_edit(self, edit: EditRequest, agent_cascade: list[EditorAgent]):
         """
@@ -193,7 +205,8 @@ class OverleafGitPaperRemote(PaperRemote):
             raise ValueError("No agents can edit this request.")
         new_lines = agent.edit(doc, edit)
         # Remove old lines and replace with new lines.
-        # We replace instead of just setting `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
+        # We replace instead of just setting
+        # `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
         # because the number of lines may be different.
         lines = lines[: edit.line_range[0]] + [new_lines] + lines[edit.line_range[1] :]
 

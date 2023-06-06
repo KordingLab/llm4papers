@@ -1,7 +1,8 @@
 class ChatPrompts:
     BASIC_v1 = """
     {{#system~}}
-    You are a helpful academic assistant. You are helping a prestigious and well educated professor edit an important research paper.
+    You are a helpful academic assistant. You are helping a prestigious and
+    well-educated professor edit an important research paper.
     {{~/system}}
 
     {{#user~}}
@@ -19,7 +20,9 @@ class ChatPrompts:
 
     {{edit_request}}
 
-    What would be a good replacement to make for that line? Remember to change the "% @ai: [command]" comment to "% @user: [comments]" when you are done. Only respond with the changed text; do not include comments or suggestions.
+    What would be a good replacement to make for that line? Remember to change
+    the "% @ai: [command]" comment to "% @user: [comments]" when you are done.
+    Only respond with the changed text; do not include comments or suggestions.
 
     ---
     REPLACEMENT:
