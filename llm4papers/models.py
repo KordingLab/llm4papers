@@ -180,6 +180,7 @@ class OverleafGitPaperRemote(PaperRemote):
         Perform an edit on the remote.
 
         """
+        logger.info(f"Performing edit {edit} on remote {self._reposlug}")
         # For now, just remove the AI comment and replace it with "@human: done"
         with open(edit.file_path) as f:
             lines = f.readlines()
