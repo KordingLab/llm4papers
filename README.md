@@ -13,3 +13,9 @@ This is a simple plugin for Overleaf (and, maybe, other editors in the future) t
 ## License
 
 This code is NOT licensed for re-use or publication, and is only for use by Kording Lab affiliates.
+
+## Technical Overview
+
+This plugin works by cloning the Overleaf git repository and editing files locally in `/tmp` and then pushing them back to the remote. This is done using the `git` Python library.
+
+Other document APIs can be added by implementing the `PaperRemote` protocol in [`models.py`](llm4papers/models.py). For an example, see the `OverleafGitPaperRemote` class.
