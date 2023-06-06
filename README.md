@@ -6,6 +6,8 @@ https://github.com/KordingLab/llm4papers/assets/693511/a642c534-50d7-4feb-aa16-d
 
 ## How to use
 
+> **Warning**: I absolutely cannot overstate how un-production-ready this tool is. **Do not use this on important documents!** Don't use this on documents you care about. And if you want to use this on something important, don't. Okay. Now I'm de-risked and un-liable. Do whatever you want.
+
 -   Clone and install dependencies (`poetry install`)
 -   Populate a `config.py` file with your credentials (see `config.example.py`)
 -   Add a new `paper` to the paper manifest (right now, can be done at startup or manually by editing the papers manifest JSON)
