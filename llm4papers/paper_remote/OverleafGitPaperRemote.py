@@ -7,15 +7,17 @@ reading and writing to Overleaf documents using gitpython.
 import logging
 import pathlib
 import shutil
+import datetime
 
-from git import Repo, Commit
+from git import Repo
+from llm4papers.config import Settings
 
 from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.models import Document, EditRequest
 from llm4papers.paper_remote import PaperRemote, logger
 
 
-def _line_was_in_last_n_commit(
+def _too_close_to_human_edits(
     repo: Repo, filename: str, line_number: int, last_n: int = 2
 ) -> bool:
     """
@@ -27,6 +29,19 @@ def _line_was_in_last_n_commit(
     made without stomping on the user's edits.
 
     """
+    # Get the date of the nth-back commit:
+    last_commit_date = repo.head.commit.committed_datetime
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    print(f"Last commit date: {last_commit_date}")
+    print(f"Now: {now}")
+
+    sec_since_last_commit = (now - last_commit_date).total_seconds()
+
+    # If the last commit was more than 10 seconds ago, any edit is fine:
+    if sec_since_last_commit > 10:
+        return False
+
     # Get the diff for HEAD~n:
     total_diff = repo.git.diff(f"HEAD~{last_n}", filename, unified=0)
 
@@ -39,22 +54,6 @@ def _line_was_in_last_n_commit(
     # Match the line in the diff:
     if current_line in total_diff:
         return True
-
-    # Get the n latest commits, in reverse chronological order
-    # commits: list[Commit] = repo.iter_commits(max_count=last_n)
-    # for commit in commits:
-    #     # Get the diffs for this commit
-    #     # https://gitpython.readthedocs.io/en/stable/reference.html?highlight=iter_commits#git.diff.Diffable
-    #     diffs = commit.diff()
-
-    #     # Check if the line was changed in any of the diffs
-    #     for diff in diffs:
-    #         print("Path eq", diff.b_blob.path, filename)
-    #         if diff.b_blob is None or diff.b_blob.path != filename:
-    #             continue
-
-    #         # TODO: Get the line number of the diff... Not clear to me this is
-    #         # even doable in a dependable way with "regular" git.
 
     return False
 
@@ -150,7 +149,7 @@ class OverleafGitPaperRemote(PaperRemote):
                         repo_scoped_file = pathlib.Path(file).relative_to(
                             self._repo.working_tree_dir
                         )
-                        if _line_was_in_last_n_commit(
+                        if _too_close_to_human_edits(
                             self._repo, str(repo_scoped_file), i
                         ):
                             logging.info(
@@ -208,7 +207,17 @@ class OverleafGitPaperRemote(PaperRemote):
         # We replace instead of just setting
         # `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
         # because the number of lines may be different.
-        lines = lines[: edit.line_range[0]] + [new_lines] + lines[edit.line_range[1] :]
+        edited_lines = lines[edit.line_range[0] : edit.line_range[1]]
+        if Settings().retain_originals_as_comments:
+            edited_lines = [f"% {line.split('@ai')[0]}\n" for line in edited_lines]
+        else:
+            edited_lines = []
+        lines = (
+            lines[: edit.line_range[0]]
+            + edited_lines
+            + [new_lines]
+            + lines[edit.line_range[1] :]
+        )
 
         with open(edit.file_path, "w") as f:
             f.writelines(lines)

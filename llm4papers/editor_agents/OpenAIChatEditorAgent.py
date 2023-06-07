@@ -77,7 +77,7 @@ class OpenAIChatEditorAgent(EditorAgent):
             edit_request=edit.request_text,
         )
 
-        edited = response["new_window"]
+        edited = response["new_window"] + "\n"
         logger.info(f"Edited text for document {document.name}:")
         logger.info(f"- {editable_text}")
         logger.info(f"+ {edited}")
