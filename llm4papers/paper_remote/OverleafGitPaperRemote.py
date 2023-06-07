@@ -8,11 +8,55 @@ import logging
 import pathlib
 import shutil
 
-from git import Repo
+from git import Repo, Commit
 
 from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.models import Document, EditRequest
 from llm4papers.paper_remote import PaperRemote, logger
+
+
+def _line_was_in_last_n_commit(
+    repo: Repo, filename: str, line_number: int, last_n: int = 2
+) -> bool:
+    """
+    Determine if the line `line_number` of the file `filename` was changed in
+    the last `last_n` commits.
+
+    This function is most useful for determining if the user has "gotten out
+    of the way" of the AI so that linewise changes to the document can be
+    made without stomping on the user's edits.
+
+    """
+    # Get the diff for HEAD~n:
+    total_diff = repo.git.diff(f"HEAD~{last_n}", filename, unified=0)
+
+    # Get the current repo state of that line:
+    current_line = repo.git.show(f"HEAD:{filename}").split("\n")[line_number]
+
+    logger.debug("Diff: " + total_diff)
+    logger.debug("Current line: " + current_line)
+
+    # Match the line in the diff:
+    if current_line in total_diff:
+        return True
+
+    # Get the n latest commits, in reverse chronological order
+    # commits: list[Commit] = repo.iter_commits(max_count=last_n)
+    # for commit in commits:
+    #     # Get the diffs for this commit
+    #     # https://gitpython.readthedocs.io/en/stable/reference.html?highlight=iter_commits#git.diff.Diffable
+    #     diffs = commit.diff()
+
+    #     # Check if the line was changed in any of the diffs
+    #     for diff in diffs:
+    #         print("Path eq", diff.b_blob.path, filename)
+    #         if diff.b_blob is None or diff.b_blob.path != filename:
+    #             continue
+
+    #         # TODO: Get the line number of the diff... Not clear to me this is
+    #         # even doable in a dependable way with "regular" git.
+
+    return False
 
 
 class OverleafGitPaperRemote(PaperRemote):
@@ -50,10 +94,12 @@ class OverleafGitPaperRemote(PaperRemote):
 
         self._repo = Repo(f"/tmp/{self._reposlug}")
 
-        logger.info(f"Pulling latest from repo {self._reposlug}")
+        logger.info(f"Pulling latest from repo {self._reposlug}.")
         try:
             self._repo.git.stash()
             self._repo.remotes.origin.pull(force=True)
+            logger.info(f"Latest change at {self._repo.head.commit.committed_datetime}")
+            logger.info(f"Repo dirty: {self._repo.is_dirty()}")
             try:
                 self._repo.git.stash("pop")
             except Exception as e:
@@ -98,9 +144,21 @@ class OverleafGitPaperRemote(PaperRemote):
                         and "%" in line
                         and line.index("%") < line.index("@ai:")
                     ):
-                        # TODO: Check to see if this line was in the last commit.
+                        # Check to see if this line was in the last commit.
                         # If it is, ignore, since we want to wait for the user
                         # to move on to the next line.
+                        repo_scoped_file = pathlib.Path(file).relative_to(
+                            self._repo.working_tree_dir
+                        )
+                        if _line_was_in_last_n_commit(
+                            self._repo, str(repo_scoped_file), i
+                        ):
+                            logging.info(
+                                f"Temporarily skipping edit request in {file}"
+                                " at line {i} because it was still in progress"
+                                " in the last commit."
+                            )
+                            continue
                         logging.info(f"Found edit request in {file} at line {i}")
                         return EditRequest(
                             line_range=(i, i + 1),
@@ -156,4 +214,10 @@ class OverleafGitPaperRemote(PaperRemote):
             f.writelines(lines)
         self._repo.index.add([edit.file_path])
         self._repo.index.commit("AI edit completed.")
-        self._repo.remotes.origin.push()
+        # self._repo.remotes.origin.push()
+        # Instead of just pushing, we need to rebase and then push.
+        # This is because we want to make sure that the AI edits are always
+        # on top of the stack.
+        self._repo.git.pull()
+        # TODO: We could do a better job catching WARNs here.
+        self._repo.git.push()
