@@ -219,4 +219,5 @@ class OverleafGitPaperRemote(PaperRemote):
         # This is because we want to make sure that the AI edits are always
         # on top of the stack.
         self._repo.git.pull()
+        # TODO: We could do a better job catching WARNs here.
         self._repo.git.push()
