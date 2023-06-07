@@ -23,4 +23,4 @@ This code is NOT licensed for re-use or publication, and is only for use by Kord
 
 This plugin works by cloning the Overleaf git repository and editing files locally in `/tmp` and then pushing them back to the remote. This is done using the `git` Python library.
 
-Other document APIs can be added by implementing the `PaperRemote` protocol in [`models.py`](llm4papers/models.py). For an example, see the `OverleafGitPaperRemote` class.
+Other document APIs can be added by implementing the `PaperRemote` protocol in [the `paper_remote` module](llm4papers/paper_remote/__init__.py). For an example, see the `OverleafGitPaperRemote` class.
