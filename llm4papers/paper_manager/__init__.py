@@ -84,10 +84,36 @@ class JSONFilePaperManager(PaperManager):
             return True
         return False
 
-    def poll(self, interval: int = 5):
+    def poll(self, interval: int = 5, falloff: str = "linear_threshold"):
+        """
+        Repeatedly poll for new changes to the papers.
+
+
+        """
+        current_interval = interval
+        strat_lambdas = {
+            "constant": lambda x: interval,
+            "linear": lambda x: x + interval,
+            "linear_threshold": (
+                lambda x: x + interval if x < 21600 else 21600
+            ),  # 6 hours
+        }
+        if falloff not in strat_lambdas:
+            raise ValueError(f"Invalid falloff strategy {falloff}")
+        strat_lambda = strat_lambdas[falloff]
+
         while True:
             if self.poll_once():
                 logger.info("Performed an edit.")
+                current_interval = interval
             else:
                 logger.info("No edits to perform.")
-            time.sleep(interval)
+                current_interval = strat_lambda(current_interval)
+
+            # print every second with a countdown and overwrite last line:
+            for i in range(current_interval):
+                print(
+                    f"Sleeping for {current_interval - i} seconds before next poll.",
+                    end="\r",
+                )
+                time.sleep(1)
