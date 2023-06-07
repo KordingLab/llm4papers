@@ -40,6 +40,7 @@ def _too_close_to_human_edits(
 
     # If the last commit was more than 10 seconds ago, any edit is fine:
     if sec_since_last_commit > 10:
+        logger.info(f"Last commit was {sec_since_last_commit}s ago, approving edit.")
         return False
 
     # Get the diff for HEAD~n:
@@ -53,6 +54,9 @@ def _too_close_to_human_edits(
 
     # Match the line in the diff:
     if current_line in total_diff:
+        logger.info(
+            f"Found current line ({current_line[:10]}...) in diff, rejecting edit."
+        )
         return True
 
     return False
