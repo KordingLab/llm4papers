@@ -193,13 +193,7 @@ class OverleafGitPaperRemote(PaperRemote):
         # `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
         # because the number of lines may be different.
         lines = self.get_lines()
-        edited_lines = lines[edit.line_range[0] : edit.line_range[1]]
-        lines = (
-            lines[: edit.line_range[0]]
-            + edited_lines
-            + [edit_result]
-            + lines[edit.line_range[1] :]
-        )
+        lines = lines[:edit.line_range[0]] + [edit_result] + lines[edit.line_range[1]:]
 
         with open(edit.file_path, "w") as f:
             f.writelines(lines)

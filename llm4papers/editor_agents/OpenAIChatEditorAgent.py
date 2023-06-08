@@ -67,10 +67,11 @@ class OpenAIChatEditorAgent(EditorAgent):
         logger.info(f"- {editable_text}")
         logger.info(f"+ {edited}")
 
+        # If configured in settings, keep the old lines but comment them out
+        if Settings().retain_originals_as_comments:
+            prefix_lines = [f"% {line.split('@ai')[0]}\n" for line in document_context]
+            edited = "".join(prefix_lines) + edited
+
         # Guarantee that we don't accidentally step on our own toes by adding
         # another @ai: request.
-        edited = edited.replace("@ai:", "-ai-:")
-
-        # TODO - configurable in settings
-        # Prepend original lines with comments
-        edited = editable_text.replace("\n", "\n%") + "\n" + edited
+        return edited.replace("@ai:", "-ai-:")
