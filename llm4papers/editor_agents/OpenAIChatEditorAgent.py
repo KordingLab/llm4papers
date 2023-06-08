@@ -36,7 +36,7 @@ class OpenAIChatEditorAgent(EditorAgent):
                     line_range=(i, i + 1), request_text=line.split("@ai:")[-1].strip()
                 )
 
-    def edit(self, paper: PaperRemote, edit: EditTrigger):
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
         """
         Perform an edit on a file, using a chat model.
         """

@@ -26,14 +26,13 @@ class EditorAgent(Protocol):
         """
         ...
 
-    def edit(self, paper: PaperRemote, edit: EditTrigger):
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
         """
-        Edit a file.
+        Edit a file, returning the new text that will replace the lines specified
+        in the Trigger.
 
-        The nature of the edit is entirely up to the implementer and can expand
-        beyond the scope of the requested edit. For example, if the requested
-        edit is to change a single line, the implementer may choose to change
-        the entire paragraph, or even the entire document.
+        TODO - refactor so that edits can be more than just strings and can happen at
+            other parts of the document.
 
         """
         ...

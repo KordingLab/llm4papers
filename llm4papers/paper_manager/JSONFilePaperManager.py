@@ -94,7 +94,12 @@ class JSONFilePaperManager(PaperManager):
         for agent in self._agents:
             for edit in agent.get_available_edits(paper):
                 logger.info(f"Agent {agent} can edit paper {paper}: {edit}")
-                new_text = agent.edit(paper, edit)
-                paper.perform_edit(edit, new_text)
-                did_edit = True
+                # TODO - be more specific about errors. Maybe create error subtypes
+                #  for both Agent errors and Paper errors
+                try:
+                    new_text = agent.edit(paper, edit)
+                    paper.perform_edit(edit, new_text)
+                    did_edit = True
+                except Exception as e:
+                    logger.error(f"Exception {e} while editing paper {paper}")
         return did_edit
