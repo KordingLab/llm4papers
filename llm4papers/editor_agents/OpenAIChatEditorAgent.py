@@ -53,7 +53,7 @@ class OpenAIChatEditorAgent(EditorAgent):
         # level context.
         lines = paper.get_lines(edit.doc_id)
         context_start = max(0, edit.line_range[0] - Settings().context_radius)
-        context_end = min(len(lines), edit.line_range[0] + Settings().context_radius)
+        context_end = min(len(lines), edit.line_range[1] + Settings().context_radius)
         document_context = lines[context_start:context_end]
         # TODO: Should support parametrized prompts.
         editor = guidance.Program(ChatPrompts.BASIC_v1)
@@ -71,7 +71,8 @@ class OpenAIChatEditorAgent(EditorAgent):
 
         # If configured in settings, keep the old lines but comment them out
         if Settings().retain_originals_as_comments:
-            prefix_lines = [f"% {line.split('@ai')[0]}\n" for line in document_context]
+            original_lines = lines[edit.line_range[0]:edit.line_range[1]]
+            prefix_lines = [f"% {line.split('@ai')[0]}" for line in original_lines]
             edited = "".join(prefix_lines) + edited
 
         # Guarantee that we don't accidentally step on our own toes by adding
