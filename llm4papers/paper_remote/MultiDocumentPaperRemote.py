@@ -4,8 +4,6 @@ reading and writing to Overleaf documents using gitpython.
 
 """
 
-import pathlib
-
 from llm4papers.models import EditTrigger
 from llm4papers.paper_remote.PaperRemote import PaperRemote, DocumentID
 

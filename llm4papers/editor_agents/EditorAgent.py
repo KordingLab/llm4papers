@@ -35,3 +35,51 @@ class EditorAgent(Protocol):
 
         """
         ...
+
+
+class WriteOutDigitsEditorAgent(EditorAgent):
+    """
+    A simple editor agent that converts single-digit numerals to words.
+
+    Intended for testing and simple debugging.
+
+    """
+
+    def get_available_edits(
+        self, paper: PaperRemote
+    ) -> Generator[EditTrigger, None, None]:
+        """
+        Find all standalone digits in the paper.
+
+        """
+        for doc_id in paper.list_doc_ids():
+            for line_num, line in enumerate(paper.get_lines(doc_id)):
+                for word_num, word in enumerate(line.split()):
+                    if word.isdigit():
+                        yield EditTrigger(
+                            line_range=(line_num, line_num),
+                            request_text=line,
+                            doc_id=doc_id,
+                        )
+
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
+        """
+        Convert a single-digit numeral to a word.
+
+        """
+        text = paper.get_lines(edit.doc_id)[edit.line_range[0]]
+        numerals = {
+            "0": "zero",
+            "1": "one",
+            "2": "two",
+            "3": "three",
+            "4": "four",
+            "5": "five",
+            "6": "six",
+            "7": "seven",
+            "8": "eight",
+            "9": "nine",
+        }
+        for numeral, word in numerals.items():
+            text = text.replace(numeral, word)
+        return text
