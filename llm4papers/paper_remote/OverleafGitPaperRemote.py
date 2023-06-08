@@ -9,11 +9,8 @@ import pathlib
 import shutil
 import datetime
 import os
-
 from git import Repo
-from llm4papers.config import Settings
 
-from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.models import EditTrigger
 from llm4papers.paper_remote import PaperRemote, logger
 
@@ -138,16 +135,20 @@ class OverleafGitPaperRemote(PaperRemote):
 
     def is_edit_ok(self, edit: EditTrigger) -> bool:
         """
-        Pull the latest from git and then check if any of the lines in the edit recently changed. If so, veto it.
+        Pull the latest from git and then check if any of the lines in the edit recently
+        changed. If so, veto it.
         """
         self.refresh_changes()
 
-        # TODO handle other paths, esp the one in edit.file_path, but for now everything is just default_doc
+        # TODO handle other paths, esp the one in edit.file_path, but for now everything
+        #  is just default_doc
         file = self._default_doc
 
-        # Check to see if this line was in the last commit. If it is, ignore, since we want to wait for the user to move
-        # on to the next line.
-        repo_scoped_file = str(pathlib.Path(file).relative_to(self._repo.working_tree_dir))
+        # Check to see if this line was in the last commit. If it is, ignore, since we
+        # want to wait for the user to move on to the next line.
+        repo_scoped_file = str(
+            pathlib.Path(file).relative_to(self._repo.working_tree_dir)
+        )
         for i in range(edit.line_range[0], edit.line_range[1]):
             if _too_close_to_human_edits(self._repo, repo_scoped_file, i):
                 logging.info(
@@ -181,9 +182,11 @@ class OverleafGitPaperRemote(PaperRemote):
             None
 
         """
-        logger.info(f"Performing edit {edit} with content {edit_result} on remote {self._reposlug}")
+        logger.info(
+            f"Performing edit {edit} with content {edit_result} on remote "
+            f"{self._reposlug}"
+        )
         # For now, just remove the AI comment and replace it with "@human: done"
-
 
         # Remove old lines and replace with new lines.
         # We replace instead of just setting

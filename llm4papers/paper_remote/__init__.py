@@ -1,6 +1,5 @@
 import logging
 from typing import Protocol
-from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.models import EditTrigger
 
 # Logging info:
@@ -21,15 +20,16 @@ class PaperRemote(Protocol):
 
     def get_lines(self, path=None) -> list[str]:
         """
-        Get the lines of the paper at path 'path' or the default document if path is None
+        Get the lines of the paper at path 'path' or the default document if path is
+        None
 
         """
         ...
 
     def is_edit_ok(self, edit: EditTrigger) -> bool:
         """
-        Return True if the edit is ok to run now, False otherwise. Gives the PaperRemote an opportunity to veto the edit
-        before it starts.
+        Return True if the edit is ok to run now, False otherwise. Gives the
+        PaperRemote an opportunity to veto the edit before it starts.
         """
         ...
 

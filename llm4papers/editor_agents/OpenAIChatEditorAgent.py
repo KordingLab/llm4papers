@@ -5,7 +5,6 @@ from llm4papers.models import EditTrigger, logger
 from llm4papers.paper_remote import PaperRemote
 from llm4papers.editor_agents.prompts import ChatPrompts
 
-
 from typing import Generator
 
 
@@ -24,15 +23,17 @@ class OpenAIChatEditorAgent(EditorAgent):
         """
         self._openai_kwargs = openai_config
 
-    def get_available_edits(self, paper: PaperRemote) -> Generator[EditTrigger, None, None]:
+    def get_available_edits(
+        self, paper: PaperRemote
+    ) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here? If so, return the edit trigger to then be passed to edit()
+        Can this agent perform the desired edit here? If so, return the edit trigger to
+        then be passed to edit()
         """
         for i, line in enumerate(paper.get_lines()):
             if "@ai:" in line:
                 yield EditTrigger(
-                    line_range=(i, i + 1),
-                    request_text=line.split("@ai:")[-1].strip()
+                    line_range=(i, i + 1), request_text=line.split("@ai:")[-1].strip()
                 )
 
     def edit(self, paper: PaperRemote, edit: EditTrigger):
@@ -49,20 +50,12 @@ class OpenAIChatEditorAgent(EditorAgent):
         # in the future, TODO this will be a great place to add full-project-
         # level context.
         lines = paper.get_lines()
-        document_context = lines[
-            max(
-                edit.line_range[0] - Settings().context_radius,
-                0,
-            ) : min(
-                edit.line_range[1] + Settings().context_radius,
-                len(lines),
-            )
-        ]
+        context_start = max(0, edit.line_range[0] - Settings().context_radius)
+        context_end = min(len(lines), edit.line_range[0] + Settings().context_radius)
+        document_context = lines[context_start:context_end]
         # TODO: Should support parametrized prompts.
         editor = guidance.Program(ChatPrompts.BASIC_v1)
-        editable_text = "\n".join(
-            lines[edit.line_range[0] : edit.line_range[1]]
-        )
+        editable_text = "\n".join(lines[edit.line_range[0] : edit.line_range[1]])
         response = editor(
             context="\n".join(document_context),
             edit_window=editable_text,

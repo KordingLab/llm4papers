@@ -88,7 +88,8 @@ class JSONFilePaperManager(PaperManager):
                 time.sleep(1)
 
     def _do_edits_helper(self, paper: PaperRemote) -> bool:
-        # TODO - threading with some job management so the same edit isn't spawned multiple times
+        # TODO - threading with some job management so the same edit isn't spawned
+        #  multiple times
         did_edit = False
         for agent in self._agents:
             for edit in agent.get_available_edits(paper):
