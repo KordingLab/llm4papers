@@ -9,7 +9,6 @@ import pathlib
 import shutil
 import datetime
 from git import Repo
-from typing import Optional
 
 from llm4papers.models import EditTrigger
 from llm4papers.paper_remote import PaperRemote, logger
@@ -124,7 +123,7 @@ class OverleafGitPaperRemote(PaperRemote):
             shutil.rmtree(f"/tmp/{self._reposlug}")
             self._refresh_changes()
 
-    def get_lines(self, doc_id: Optional[str] = None) -> list[str]:
+    def get_lines(self, doc_id: str | None = None) -> list[str]:
         doc_id = doc_id or self._default_doc_id
         path = self._doc_id_to_path(doc_id)
         if not path.exists():
