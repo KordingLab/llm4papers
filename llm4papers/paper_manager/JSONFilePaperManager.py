@@ -49,7 +49,7 @@ class JSONFilePaperManager(PaperManager):
         is_triggered = False
         for paper in self.papers():
             logger.info(f"Polling paper {paper.dict()}")
-            paper.refresh_changes()
+            paper._refresh_changes()
             is_triggered |= self._do_edits_helper(paper)
         return is_triggered
 

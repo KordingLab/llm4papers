@@ -79,10 +79,10 @@ class OverleafGitPaperRemote(PaperRemote):
         self._reposlug = git_repo.split("/")[-1].split(".")[0]
         self._gitrepo = git_repo
         self._repo: Repo = None
-        self.refresh_changes()
+        self._refresh_changes()
         self._default_doc = os.path.join("tmp", self._reposlug, default_doc)
 
-    def refresh_changes(self):
+    def _refresh_changes(self):
         """
         This is a fallback method (that likely needs some love) to ensure that
         the repo is up to date with the latest upstream changes.
@@ -119,7 +119,7 @@ class OverleafGitPaperRemote(PaperRemote):
             self._repo = None
             # recursively delete the repo
             shutil.rmtree(f"/tmp/{self._reposlug}")
-            self.refresh_changes()
+            self._refresh_changes()
 
     def get_lines(self, path=None) -> list[str]:
         if path is not None:
@@ -138,7 +138,8 @@ class OverleafGitPaperRemote(PaperRemote):
         Pull the latest from git and then check if any of the lines in the edit recently
         changed. If so, veto it.
         """
-        self.refresh_changes()
+        # TODO - do we really want to refresh here and risk making the Trigger outdated?
+        self._refresh_changes()
 
         # TODO handle other paths, esp the one in edit.file_path, but for now everything
         #  is just default_doc

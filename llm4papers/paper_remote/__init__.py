@@ -11,7 +11,7 @@ class PaperRemote(Protocol):
     def dict(self):
         ...
 
-    def refresh_changes(self) -> None:
+    def _refresh_changes(self) -> None:
         """
         Check for any changes and update
 
