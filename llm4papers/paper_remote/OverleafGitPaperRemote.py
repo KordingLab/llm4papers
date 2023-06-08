@@ -8,12 +8,9 @@ import logging
 import pathlib
 import shutil
 import datetime
-
 from git import Repo
-from llm4papers.config import Settings
 
-from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import Document, EditRequest
+from llm4papers.models import EditTrigger
 from llm4papers.paper_remote import PaperRemote, logger
 
 
@@ -81,9 +78,12 @@ class OverleafGitPaperRemote(PaperRemote):
         self._reposlug = git_repo.split("/")[-1].split(".")[0]
         self._gitrepo = git_repo
         self._repo: Repo = None
-        self._refresh_repo()
+        self._refresh_changes()
 
-    def _refresh_repo(self):
+    def _doc_id_to_path(self, doc_id: str) -> pathlib.Path:
+        return pathlib.Path(self._repo.working_tree_dir) / doc_id
+
+    def _refresh_changes(self):
         """
         This is a fallback method (that likely needs some love) to ensure that
         the repo is up to date with the latest upstream changes.
@@ -120,55 +120,44 @@ class OverleafGitPaperRemote(PaperRemote):
             self._repo = None
             # recursively delete the repo
             shutil.rmtree(f"/tmp/{self._reposlug}")
-            self._refresh_repo()
+            self._refresh_changes()
 
-    def get_next_edit_request(self) -> EditRequest:
+    def list_doc_ids(self) -> list[str]:
         """
-        Pull the latest from git and then review all .tex files for the trigger
-
-        Requests will be comments that look like this:
-
-        > blah blah blah % @ai: rewrite this formally
-
-        Arguments:
-            None
-
-        Returns:
-            An EditRequest object scoped to this repo.
+        List the document ids available in this paper
 
         """
-        self._refresh_repo()
+        root = pathlib.Path(self._repo.working_tree_dir)
+        return [str(file.relative_to(root)) for file in root.glob("**/*.tex")]
 
-        for file in pathlib.Path(self._repo.working_tree_dir).glob("*.tex"):
-            with open(file) as f:
-                for i, line in enumerate(f.readlines()):
-                    if (
-                        "@ai:" in line
-                        and "%" in line
-                        and line.index("%") < line.index("@ai:")
-                    ):
-                        # Check to see if this line was in the last commit.
-                        # If it is, ignore, since we want to wait for the user
-                        # to move on to the next line.
-                        repo_scoped_file = pathlib.Path(file).relative_to(
-                            self._repo.working_tree_dir
-                        )
-                        if _too_close_to_human_edits(
-                            self._repo, str(repo_scoped_file), i
-                        ):
-                            logging.info(
-                                f"Temporarily skipping edit request in {file}"
-                                " at line {i} because it was still in progress"
-                                " in the last commit."
-                            )
-                            continue
-                        logging.info(f"Found edit request in {file} at line {i}")
-                        return EditRequest(
-                            line_range=(i, i + 1),
-                            request_text=line.split("@ai:")[1],
-                            file_path=str(file),
-                        )
-        raise ValueError("No edit requests found.")
+    def get_lines(self, doc_id: str) -> list[str]:
+        path = self._doc_id_to_path(doc_id)
+        if not path.exists():
+            raise FileNotFoundError(f"Document {doc_id} not found.")
+
+        with open(path) as f:
+            return f.readlines()
+
+    def is_edit_ok(self, edit: EditTrigger) -> bool:
+        """
+        Pull the latest from git and then check if any of the lines in the edit recently
+        changed. If so, veto it.
+        """
+        # TODO - do we really want to refresh here and risk making the Trigger outdated?
+        self._refresh_changes()
+
+        # Check to see if this line was in the last commit. If it is, ignore, since we
+        # want to wait for the user to move on to the next line.
+        repo_scoped_file = str(self._doc_id_to_path(edit.doc_id))
+        for i in range(edit.line_range[0], edit.line_range[1]):
+            if _too_close_to_human_edits(self._repo, repo_scoped_file, i):
+                logging.info(
+                    f"Temporarily skipping edit request in {edit.doc_id}"
+                    " at line {i} because it was still in progress"
+                    " in the last commit."
+                )
+                return False
+        return True
 
     def dict(self) -> dict:
         """
@@ -181,51 +170,37 @@ class OverleafGitPaperRemote(PaperRemote):
             "type": "OverleafGitPaperRemote",
         }
 
-    def perform_edit(self, edit: EditRequest, agent_cascade: list[EditorAgent]):
+    def perform_edit(self, edit: EditTrigger, edit_result: str):
         """
         Perform an edit on the remote.
 
         Arguments:
-            edit: The edit location requested by the AI.
-            agent_cascade: A list of EditorAgents to try in order, until one
-                can perform the edit. The first agent that can perform the edit
-                will be used. This is generally provided by a PapersManager.
+            edit: The original edit trigger
+            edit_result: The result of the edit
 
         Returns:
             None
 
         """
-        logger.info(f"Performing edit {edit} on remote {self._reposlug}")
+        logger.info(
+            f"Performing edit {edit} with content {edit_result} on remote "
+            f"{self._reposlug}"
+        )
         # For now, just remove the AI comment and replace it with "@human: done"
-        with open(edit.file_path) as f:
-            lines = f.readlines()
 
-        doc = Document(lines=lines, name=edit.file_path)
-        for agent in agent_cascade:
-            if agent.can_edit(edit):
-                break
-        else:
-            raise ValueError("No agents can edit this request.")
-        new_lines = agent.edit(doc, edit)
         # Remove old lines and replace with new lines.
         # We replace instead of just setting
         # `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
         # because the number of lines may be different.
-        edited_lines = lines[edit.line_range[0] : edit.line_range[1]]
-        if Settings().retain_originals_as_comments:
-            edited_lines = [f"% {line.split('@ai')[0]}\n" for line in edited_lines]
-        else:
-            edited_lines = []
+        lines = self.get_lines(edit.doc_id)
         lines = (
-            lines[: edit.line_range[0]]
-            + edited_lines
-            + [new_lines]
-            + lines[edit.line_range[1] :]
+            lines[: edit.line_range[0]] + [edit_result] + lines[edit.line_range[1] :]
         )
 
-        with open(edit.file_path, "w") as f:
+        file = self._doc_id_to_path(edit.doc_id)
+        with open(file, "w") as f:
             f.writelines(lines)
-        self._repo.index.add([edit.file_path])
+        self._repo.index.add([file])
         self._repo.index.commit("AI edit completed.")
         # self._repo.remotes.origin.push()
         # Instead of just pushing, we need to rebase and then push.

@@ -28,5 +28,3 @@ class PaperManager(Protocol):
 
         """
         ...
-
-

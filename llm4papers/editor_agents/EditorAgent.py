@@ -1,6 +1,7 @@
-from llm4papers.models import Document, EditRequest
+from llm4papers.models import EditTrigger
+from llm4papers.paper_remote import PaperRemote
 
-from typing import Protocol
+from typing import Protocol, Generator
 
 
 class EditorAgent(Protocol):
@@ -16,20 +17,21 @@ class EditorAgent(Protocol):
 
     """
 
-    def can_edit(self, edit: EditRequest) -> bool:
+    def get_available_edits(
+        self, paper: PaperRemote
+    ) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here?
+        Return all the edits that are possible in this paper by this Agent.
         """
         ...
 
-    def edit(self, document: Document, edit: EditRequest) -> str:
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
         """
-        Edit a file.
+        Edit a file, returning the new text that will replace the lines specified
+        in the Trigger.
 
-        The nature of the edit is entirely up to the implementer and can expand
-        beyond the scope of the requested edit. For example, if the requested
-        edit is to change a single line, the implementer may choose to change
-        the entire paragraph, or even the entire document.
+        TODO - refactor so that edits can be more than just strings and can happen at
+            other parts of the document.
 
         """
         ...

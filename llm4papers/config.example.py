@@ -17,3 +17,6 @@ class Settings(BaseSettings):
 
     # The name of the JSON manifest file to use, if using the JSONPapersManager
     json_manifest_file = "papers_manifest.json"
+
+    # When performing edits, should the original lines be retained as comments?
+    retain_originals_as_comments = True

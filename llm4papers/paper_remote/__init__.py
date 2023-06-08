@@ -1,7 +1,6 @@
 import logging
 from typing import Protocol
-from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import EditRequest
+from llm4papers.models import EditTrigger
 
 # Logging info:
 logger = logging.getLogger(__name__)
@@ -12,22 +11,41 @@ class PaperRemote(Protocol):
     def dict(self):
         ...
 
-    def get_next_edit_request(self) -> EditRequest:
+    def _refresh_changes(self) -> None:
         """
-        Get the next edit request from the remote.
+        Check for any changes and update
 
         """
         ...
 
-    def perform_edit(self, edit: EditRequest, agent_cascade: list[EditorAgent]):
+    def list_doc_ids(self) -> list[str]:
+        """
+        List the document ids available in this paper
+
+        """
+        ...
+
+    def get_lines(self, doc_id: str) -> list[str]:
+        """
+        Get the lines of the specified document
+
+        """
+        ...
+
+    def is_edit_ok(self, edit: EditTrigger) -> bool:
+        """
+        Return True if the edit is ok to run now, False otherwise. Gives the
+        PaperRemote an opportunity to veto the edit before it starts.
+        """
+        ...
+
+    def perform_edit(self, edit: EditTrigger, edit_result: str):
         """
         Perform an edit on the remote.
 
         Arguments:
-            edit: The edit location requested by the AI.
-            agent_cascade: A list of EditorAgents to try in order, until one
-                can perform the edit. The first agent that can perform the edit
-                will be used. This is generally provided by a PapersManager.
+            edit: The original edit trigger
+            edit_result: The result of the edit
 
         Returns:
             None
