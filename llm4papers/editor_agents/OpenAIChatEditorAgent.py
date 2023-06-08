@@ -72,7 +72,10 @@ class OpenAIChatEditorAgent(EditorAgent):
         # If configured in settings, keep the old lines but comment them out
         if Settings().retain_originals_as_comments:
             original_lines = lines[edit.line_range[0] : edit.line_range[1]]
-            prefix_lines = [f"% {line.split('@ai')[0]}" for line in original_lines]
+            prefix_lines = [
+                f"% {line.split('@ai')[0]}\n" if "@ai" in line else f"% {line}"
+                for line in original_lines
+            ]
             edited = "".join(prefix_lines) + edited
 
         # Guarantee that we don't accidentally step on our own toes by adding
