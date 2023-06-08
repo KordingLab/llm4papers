@@ -29,11 +29,14 @@ class OpenAIChatEditorAgent(EditorAgent):
         """
         Return all the edits that are possible in this paper by this Agent.
         """
-        for i, line in enumerate(paper.get_lines()):
-            if "@ai:" in line:
-                yield EditTrigger(
-                    line_range=(i, i + 1), request_text=line.split("@ai:")[-1].strip()
-                )
+        for doc_id in paper.list_doc_ids():
+            for i, line in enumerate(paper.get_lines(doc_id)):
+                if "@ai:" in line:
+                    yield EditTrigger(
+                        line_range=(i, i + 1),
+                        request_text=line.split("@ai:")[-1].strip(),
+                        doc_id=doc_id,
+                    )
 
     def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
         """
@@ -48,7 +51,7 @@ class OpenAIChatEditorAgent(EditorAgent):
         # it can chew on. This is configurable in the settings (config.py) and
         # in the future, TODO this will be a great place to add full-project-
         # level context.
-        lines = paper.get_lines()
+        lines = paper.get_lines(edit.doc_id)
         context_start = max(0, edit.line_range[0] - Settings().context_radius)
         context_end = min(len(lines), edit.line_range[0] + Settings().context_radius)
         document_context = lines[context_start:context_end]

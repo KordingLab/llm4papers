@@ -67,7 +67,7 @@ class OverleafGitPaperRemote(PaperRemote):
 
     """
 
-    def __init__(self, git_repo: str, default_doc_id: str = "main.tex"):
+    def __init__(self, git_repo: str):
         """
         Saves the git repo to a local temporary directory using gitpython.
 
@@ -79,7 +79,6 @@ class OverleafGitPaperRemote(PaperRemote):
         self._gitrepo = git_repo
         self._repo: Repo = None
         self._refresh_changes()
-        self._default_doc_id = default_doc_id
 
     def _doc_id_to_path(self, doc_id: str) -> pathlib.Path:
         return pathlib.Path(self._repo.working_tree_dir) / doc_id
@@ -123,8 +122,15 @@ class OverleafGitPaperRemote(PaperRemote):
             shutil.rmtree(f"/tmp/{self._reposlug}")
             self._refresh_changes()
 
-    def get_lines(self, doc_id: str | None = None) -> list[str]:
-        doc_id = doc_id or self._default_doc_id
+    def list_doc_ids(self) -> list[str]:
+        """
+        List the document ids available in this paper
+
+        """
+        root = pathlib.Path(self._repo.working_tree_dir)
+        return [str(file.relative_to(root)) for file in root.glob("**/*.tex")]
+
+    def get_lines(self, doc_id: str) -> list[str]:
         path = self._doc_id_to_path(doc_id)
         if not path.exists():
             raise FileNotFoundError(f"Document {doc_id} not found.")
@@ -140,17 +146,13 @@ class OverleafGitPaperRemote(PaperRemote):
         # TODO - do we really want to refresh here and risk making the Trigger outdated?
         self._refresh_changes()
 
-        # TODO handle other paths, esp the one in edit.file_path, but for now everything
-        #  is just default_doc
-        file = self._default_doc_id
-
         # Check to see if this line was in the last commit. If it is, ignore, since we
         # want to wait for the user to move on to the next line.
-        repo_scoped_file = str(self._doc_id_to_path(file))
+        repo_scoped_file = str(self._doc_id_to_path(edit.doc_id))
         for i in range(edit.line_range[0], edit.line_range[1]):
             if _too_close_to_human_edits(self._repo, repo_scoped_file, i):
                 logging.info(
-                    f"Temporarily skipping edit request in {file}"
+                    f"Temporarily skipping edit request in {edit.doc_id}"
                     " at line {i} because it was still in progress"
                     " in the last commit."
                 )
@@ -166,7 +168,6 @@ class OverleafGitPaperRemote(PaperRemote):
             "git_repo": self._repo.remotes.origin.url,
             "repo_slug": self._reposlug,
             "type": "OverleafGitPaperRemote",
-            "default_doc_id": self._default_doc_id,
         }
 
     def perform_edit(self, edit: EditTrigger, edit_result: str):
@@ -191,14 +192,15 @@ class OverleafGitPaperRemote(PaperRemote):
         # We replace instead of just setting
         # `lines[edit.line_range[0]:edit.line_range[1]] = new_lines`
         # because the number of lines may be different.
-        lines = self.get_lines()
+        lines = self.get_lines(edit.doc_id)
         lines = (
             lines[: edit.line_range[0]] + [edit_result] + lines[edit.line_range[1] :]
         )
 
-        with open(edit.file_path, "w") as f:
+        file = self._doc_id_to_path(edit.doc_id)
+        with open(file, "w") as f:
             f.writelines(lines)
-        self._repo.index.add([edit.file_path])
+        self._repo.index.add([file])
         self._repo.index.commit("AI edit completed.")
         # self._repo.remotes.origin.push()
         # Instead of just pushing, we need to rebase and then push.

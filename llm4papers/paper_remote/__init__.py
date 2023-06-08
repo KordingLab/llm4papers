@@ -18,9 +18,16 @@ class PaperRemote(Protocol):
         """
         ...
 
-    def get_lines(self, doc_id: str | None = None) -> list[str]:
+    def list_doc_ids(self) -> list[str]:
         """
-        Get the lines of the specified document or the default document if None
+        List the document ids available in this paper
+
+        """
+        ...
+
+    def get_lines(self, doc_id: str) -> list[str]:
+        """
+        Get the lines of the specified document
 
         """
         ...
