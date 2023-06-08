@@ -21,8 +21,7 @@ class EditorAgent(Protocol):
         self, paper: PaperRemote
     ) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here? If so, return all that it can do
-        by yielding them
+        Return all the edits that are possible in this paper by this Agent.
         """
         ...
 

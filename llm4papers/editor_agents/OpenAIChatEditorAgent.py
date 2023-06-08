@@ -27,8 +27,7 @@ class OpenAIChatEditorAgent(EditorAgent):
         self, paper: PaperRemote
     ) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here? If so, return the edit trigger to
-        then be passed to edit()
+        Return all the edits that are possible in this paper by this Agent.
         """
         for i, line in enumerate(paper.get_lines()):
             if "@ai:" in line:
