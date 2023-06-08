@@ -1,7 +1,7 @@
 import guidance
 from llm4papers.config import Settings
 from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import Document, EditRequest, logger
+from llm4papers.models import Document, EditTrigger, logger
 from llm4papers.editor_agents.prompts import ChatPrompts
 
 
@@ -20,7 +20,7 @@ class OpenAIChatEditorAgent(EditorAgent):
         """
         self._openai_kwargs = openai_config
 
-    def can_edit(self, edit: EditRequest) -> bool:
+    def can_edit(self, edit: EditTrigger) -> bool:
         """
         Can this agent perform the desired edit here? Yes.
 
@@ -36,7 +36,7 @@ class OpenAIChatEditorAgent(EditorAgent):
         """
         return True
 
-    def edit(self, document: Document, edit: EditRequest) -> str:
+    def edit(self, document: Document, edit: EditTrigger) -> str:
         """
         Perform an edit on a file, using a chat model.
 

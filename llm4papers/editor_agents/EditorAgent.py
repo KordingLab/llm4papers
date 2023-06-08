@@ -1,4 +1,4 @@
-from llm4papers.models import Document, EditRequest
+from llm4papers.models import Document, EditTrigger
 
 from typing import Protocol
 
@@ -16,13 +16,13 @@ class EditorAgent(Protocol):
 
     """
 
-    def can_edit(self, edit: EditRequest) -> bool:
+    def can_edit(self, edit: EditTrigger) -> bool:
         """
         Can this agent perform the desired edit here?
         """
         ...
 
-    def edit(self, document: Document, edit: EditRequest) -> str:
+    def edit(self, document: Document, edit: EditTrigger) -> str:
         """
         Edit a file.
 

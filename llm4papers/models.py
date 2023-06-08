@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class EditRequest(BaseModel):
+class EditTrigger(BaseModel):
     line_range: tuple[int, int]
     request_text: str
     file_path: str = Field(default="main.tex")

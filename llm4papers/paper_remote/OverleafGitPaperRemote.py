@@ -13,7 +13,7 @@ from git import Repo
 from llm4papers.config import Settings
 
 from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import Document, EditRequest
+from llm4papers.models import Document, EditTrigger
 from llm4papers.paper_remote import PaperRemote, logger
 
 
@@ -122,7 +122,7 @@ class OverleafGitPaperRemote(PaperRemote):
             shutil.rmtree(f"/tmp/{self._reposlug}")
             self._refresh_repo()
 
-    def get_next_edit_request(self) -> EditRequest:
+    def get_next_edit_request(self) -> EditTrigger:
         """
         Pull the latest from git and then review all .tex files for the trigger
 
@@ -163,7 +163,7 @@ class OverleafGitPaperRemote(PaperRemote):
                             )
                             continue
                         logging.info(f"Found edit request in {file} at line {i}")
-                        return EditRequest(
+                        return EditTrigger(
                             line_range=(i, i + 1),
                             request_text=line.split("@ai:")[1],
                             file_path=str(file),
@@ -181,7 +181,7 @@ class OverleafGitPaperRemote(PaperRemote):
             "type": "OverleafGitPaperRemote",
         }
 
-    def perform_edit(self, edit: EditRequest, agent_cascade: list[EditorAgent]):
+    def perform_edit(self, edit: EditTrigger, agent_cascade: list[EditorAgent]):
         """
         Perform an edit on the remote.
 

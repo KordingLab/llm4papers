@@ -1,7 +1,7 @@
 import logging
 from typing import Protocol
 from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import EditRequest
+from llm4papers.models import EditTrigger
 
 # Logging info:
 logger = logging.getLogger(__name__)
@@ -12,14 +12,14 @@ class PaperRemote(Protocol):
     def dict(self):
         ...
 
-    def get_next_edit_request(self) -> EditRequest:
+    def get_next_edit_request(self) -> EditTrigger:
         """
         Get the next edit request from the remote.
 
         """
         ...
 
-    def perform_edit(self, edit: EditRequest, agent_cascade: list[EditorAgent]):
+    def perform_edit(self, edit: EditTrigger, agent_cascade: list[EditorAgent]):
         """
         Perform an edit on the remote.
 
