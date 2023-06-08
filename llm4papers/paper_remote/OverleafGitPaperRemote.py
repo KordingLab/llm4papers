@@ -125,7 +125,7 @@ class OverleafGitPaperRemote(PaperRemote):
             path = pathlib.Path(path)
             if not path.exists():
                 path = pathlib.Path(self._repo.working_tree_dir) / path
-                if path.exists():
+                if not path.exists():
                     raise FileNotFoundError(f"File {path} not found.")
         else:
             path = self._default_doc
