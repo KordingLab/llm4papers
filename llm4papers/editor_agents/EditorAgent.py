@@ -1,5 +1,5 @@
 from llm4papers.models import EditTrigger
-from llm4papers.paper_remote import PaperRemote
+from llm4papers.paper_remote.PaperRemote import PaperRemote
 
 from typing import Protocol, Generator
 

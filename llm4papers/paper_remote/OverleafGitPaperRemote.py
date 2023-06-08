@@ -4,14 +4,14 @@ reading and writing to Overleaf documents using gitpython.
 
 """
 
-import logging
 import pathlib
 import shutil
 import datetime
-from git import Repo
+from git import Repo  # type: ignore
 
-from llm4papers.models import EditTrigger
-from llm4papers.paper_remote import PaperRemote, logger
+from llm4papers.models import DocumentID, EditTrigger
+from llm4papers.logger import logger
+from llm4papers.paper_remote.MultiDocumentPaperRemote import MultiDocumentPaperRemote
 
 
 def _too_close_to_human_edits(
@@ -59,7 +59,7 @@ def _too_close_to_human_edits(
     return False
 
 
-class OverleafGitPaperRemote(PaperRemote):
+class OverleafGitPaperRemote(MultiDocumentPaperRemote):
     """
     Overleaf exposes a git remote for each project. This class handles reading
     and writing to Overleaf documents using gitpython, and implements the
@@ -76,12 +76,33 @@ class OverleafGitPaperRemote(PaperRemote):
 
         """
         self._reposlug = git_repo.split("/")[-1].split(".")[0]
-        self._gitrepo = git_repo
-        self._repo: Repo = None
+        self._git_repository_uri = git_repo
+        self._cached_repo: Repo | None = None
         self._refresh_changes()
 
-    def _doc_id_to_path(self, doc_id: str) -> pathlib.Path:
-        return pathlib.Path(self._repo.working_tree_dir) / doc_id
+    @property
+    def _repo(self) -> Repo:
+        if self._cached_repo is None:
+            self._refresh_changes()
+        return self._cached_repo  # type: ignore
+
+    def _doc_id_to_path(self, doc_id: DocumentID) -> pathlib.Path:
+        git_root = self._repo.working_tree_dir
+        if git_root is None:
+            raise ValueError(
+                f"Repository failed to initialize in filesystem for {self._repo}"
+            )
+        # We assert in this PaperRemote that doc_ids are 1:1 with filenames,
+        # so we can cast to a string on this next line:
+        return pathlib.Path(git_root) / str(doc_id)
+
+    def _requires_repo(self, func):
+        def wrapper(*args, **kwargs):
+            if self._repo is None:
+                self._refresh_changes()
+            return func(*args, **kwargs)
+
+        return wrapper
 
     def _refresh_changes(self):
         """
@@ -93,9 +114,11 @@ class OverleafGitPaperRemote(PaperRemote):
         """
         # If the repo doesn't exist, clone it.
         if not pathlib.Path(f"/tmp/{self._reposlug}").exists():
-            self._repo = Repo.clone_from(self._gitrepo, f"/tmp/{self._reposlug}")
+            self._cached_repo = Repo.clone_from(
+                self._git_repository_uri, f"/tmp/{self._reposlug}"
+            )
 
-        self._repo = Repo(f"/tmp/{self._reposlug}")
+        self._cached_repo = Repo(f"/tmp/{self._reposlug}")
 
         logger.info(f"Pulling latest from repo {self._reposlug}.")
         try:
@@ -117,7 +140,7 @@ class OverleafGitPaperRemote(PaperRemote):
             )
             # Recursively delete the repo and try again.
             self._repo.close()
-            self._repo = None
+            self._cached_repo = None
             # recursively delete the repo
             shutil.rmtree(f"/tmp/{self._reposlug}")
             self._refresh_changes()
@@ -127,10 +150,15 @@ class OverleafGitPaperRemote(PaperRemote):
         List the document ids available in this paper
 
         """
-        root = pathlib.Path(self._repo.working_tree_dir)
+        git_root = self._repo.working_tree_dir
+        if git_root is None:
+            raise ValueError(
+                f"Repository failed to initialize in filesystem for {self._repo}"
+            )
+        root = pathlib.Path(git_root)
         return [str(file.relative_to(root)) for file in root.glob("**/*.tex")]
 
-    def get_lines(self, doc_id: str) -> list[str]:
+    def get_lines(self, doc_id: DocumentID) -> list[str]:
         path = self._doc_id_to_path(doc_id)
         if not path.exists():
             raise FileNotFoundError(f"Document {doc_id} not found.")
@@ -151,7 +179,7 @@ class OverleafGitPaperRemote(PaperRemote):
         repo_scoped_file = str(self._doc_id_to_path(edit.doc_id))
         for i in range(edit.line_range[0], edit.line_range[1]):
             if _too_close_to_human_edits(self._repo, repo_scoped_file, i):
-                logging.info(
+                logger.info(
                     f"Temporarily skipping edit request in {edit.doc_id}"
                     " at line {i} because it was still in progress"
                     " in the last commit."

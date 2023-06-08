@@ -5,8 +5,9 @@ import time
 from llm4papers.config import OpenAIConfig
 from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
-from llm4papers.paper_manager import PaperManager, logger
-from llm4papers.paper_remote import PaperRemote
+from llm4papers.paper_manager import PaperManager
+from llm4papers.logger import logger
+from llm4papers.paper_remote.PaperRemote import PaperRemote
 from llm4papers.paper_remote.OverleafGitPaperRemote import OverleafGitPaperRemote
 
 
@@ -50,7 +51,7 @@ class JSONFilePaperManager(PaperManager):
         is_triggered = False
         for paper in self.papers():
             logger.info(f"Polling paper {paper.dict()}")
-            paper._refresh_changes()
+            paper.refresh()
             is_triggered |= self._do_edits_helper(paper)
         return is_triggered
 

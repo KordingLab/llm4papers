@@ -1,8 +1,9 @@
 import guidance
 from llm4papers.config import Settings
 from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import EditTrigger, logger
-from llm4papers.paper_remote import PaperRemote
+from llm4papers.models import EditTrigger
+from llm4papers.logger import logger
+from llm4papers.paper_remote.PaperRemote import PaperRemote
 from llm4papers.editor_agents.prompts import ChatPrompts
 
 from typing import Generator
