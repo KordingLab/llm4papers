@@ -1,7 +1,6 @@
 import sys
 from llm4papers.config import Settings
-from llm4papers.paper_manager import JSONFilePaperManager
-
+from llm4papers.paper_manager.JSONFilePaperManager import JSONFilePaperManager
 
 if __name__ == "__main__":
     manifest_file = (
