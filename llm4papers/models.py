@@ -13,4 +13,5 @@ logger.setLevel(logging.INFO)
 class EditTrigger(BaseModel):
     line_range: tuple[int, int]
     request_text: str
+    # TODO switch from file/path semantics to document_id semantics
     file_path: str = Field(default="main.tex")

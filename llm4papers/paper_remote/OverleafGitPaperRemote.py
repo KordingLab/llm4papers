@@ -9,6 +9,7 @@ import pathlib
 import shutil
 import datetime
 from git import Repo
+from typing import Optional
 
 from llm4papers.models import EditTrigger
 from llm4papers.paper_remote import PaperRemote, logger
@@ -67,7 +68,7 @@ class OverleafGitPaperRemote(PaperRemote):
 
     """
 
-    def __init__(self, git_repo: str, default_doc: str = "main.tex"):
+    def __init__(self, git_repo: str, default_doc_id: str = "main.tex"):
         """
         Saves the git repo to a local temporary directory using gitpython.
 
@@ -79,7 +80,10 @@ class OverleafGitPaperRemote(PaperRemote):
         self._gitrepo = git_repo
         self._repo: Repo = None
         self._refresh_changes()
-        self._default_doc = pathlib.Path(self._repo.working_tree_dir) / default_doc
+        self._default_doc_id = default_doc_id
+
+    def _doc_id_to_path(self, doc_id: str) -> pathlib.Path:
+        return pathlib.Path(self._repo.working_tree_dir) / doc_id
 
     def _refresh_changes(self):
         """
@@ -120,15 +124,11 @@ class OverleafGitPaperRemote(PaperRemote):
             shutil.rmtree(f"/tmp/{self._reposlug}")
             self._refresh_changes()
 
-    def get_lines(self, path=None) -> list[str]:
-        if path is not None:
-            path = pathlib.Path(path)
-            if not path.exists():
-                path = pathlib.Path(self._repo.working_tree_dir) / path
-                if not path.exists():
-                    raise FileNotFoundError(f"File {path} not found.")
-        else:
-            path = self._default_doc
+    def get_lines(self, doc_id: Optional[str] = None) -> list[str]:
+        doc_id = doc_id or self._default_doc_id
+        path = self._doc_id_to_path(doc_id)
+        if not path.exists():
+            raise FileNotFoundError(f"Document {doc_id} not found.")
 
         with open(path) as f:
             return f.readlines()
@@ -143,13 +143,11 @@ class OverleafGitPaperRemote(PaperRemote):
 
         # TODO handle other paths, esp the one in edit.file_path, but for now everything
         #  is just default_doc
-        file = self._default_doc
+        file = self._default_doc_id
 
         # Check to see if this line was in the last commit. If it is, ignore, since we
         # want to wait for the user to move on to the next line.
-        repo_scoped_file = str(
-            pathlib.Path(file).relative_to(self._repo.working_tree_dir)
-        )
+        repo_scoped_file = str(self._doc_id_to_path(file))
         for i in range(edit.line_range[0], edit.line_range[1]):
             if _too_close_to_human_edits(self._repo, repo_scoped_file, i):
                 logging.info(

@@ -1,5 +1,5 @@
 import logging
-from typing import Protocol
+from typing import Protocol, Optional
 from llm4papers.models import EditTrigger
 
 # Logging info:
@@ -18,10 +18,9 @@ class PaperRemote(Protocol):
         """
         ...
 
-    def get_lines(self, path=None) -> list[str]:
+    def get_lines(self, doc_id: Optional[str] = None) -> list[str]:
         """
-        Get the lines of the paper at path 'path' or the default document if path is
-        None
+        Get the lines of the specified document or the default document if None
 
         """
         ...
