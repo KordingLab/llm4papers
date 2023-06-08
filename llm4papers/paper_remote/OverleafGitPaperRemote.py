@@ -166,6 +166,7 @@ class OverleafGitPaperRemote(PaperRemote):
             "git_repo": self._repo.remotes.origin.url,
             "repo_slug": self._reposlug,
             "type": "OverleafGitPaperRemote",
+            "default_doc_id": self._default_doc_id,
         }
 
     def perform_edit(self, edit: EditTrigger, edit_result: str):

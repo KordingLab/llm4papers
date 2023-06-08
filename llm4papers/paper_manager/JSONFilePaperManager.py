@@ -41,7 +41,14 @@ class JSONFilePaperManager(PaperManager):
 
     def papers(self) -> list[PaperRemote]:
         papers_json = self._json["papers"]
-        return [OverleafGitPaperRemote(paper["git_repo"]) for paper in papers_json]
+        # TODO - support other PaperRemote classes with some abstraction here
+        return [
+            OverleafGitPaperRemote(
+                paper["git_repo"],
+                default_doc_id=paper.get("default_doc_id", "main.tex"),
+            )
+            for paper in papers_json
+        ]
 
     def poll_once(self):
         self._load_json()
