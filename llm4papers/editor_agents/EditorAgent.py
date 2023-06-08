@@ -1,6 +1,7 @@
-from llm4papers.models import Document, EditTrigger
+from llm4papers.models import  EditTrigger
+from llm4papers.paper_remote import PaperRemote
 
-from typing import Protocol
+from typing import Protocol, Generator
 
 
 class EditorAgent(Protocol):
@@ -16,13 +17,13 @@ class EditorAgent(Protocol):
 
     """
 
-    def can_edit(self, edit: EditTrigger) -> bool:
+    def get_available_edits(self, paper: PaperRemote) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here?
+        Can this agent perform the desired edit here? If so, return all that it can do by yielding them
         """
         ...
 
-    def edit(self, document: Document, edit: EditTrigger) -> str:
+    def edit(self, paper: PaperRemote, edit: EditTrigger):
         """
         Edit a file.
 

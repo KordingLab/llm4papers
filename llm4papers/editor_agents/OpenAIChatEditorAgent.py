@@ -1,8 +1,12 @@
 import guidance
 from llm4papers.config import Settings
 from llm4papers.editor_agents.EditorAgent import EditorAgent
-from llm4papers.models import Document, EditTrigger, logger
+from llm4papers.models import EditTrigger, logger
+from llm4papers.paper_remote import PaperRemote
 from llm4papers.editor_agents.prompts import ChatPrompts
+
+
+from typing import Generator
 
 
 class OpenAIChatEditorAgent(EditorAgent):
@@ -20,33 +24,20 @@ class OpenAIChatEditorAgent(EditorAgent):
         """
         self._openai_kwargs = openai_config
 
-    def can_edit(self, edit: EditTrigger) -> bool:
+    def get_available_edits(self, paper: PaperRemote) -> Generator[EditTrigger, None, None]:
         """
-        Can this agent perform the desired edit here? Yes.
-
-        We always return True here; the OpenAI chat API is very general and
-        should be able to perform any edit requested in plain language.
-
-        Arguments:
-            edit: The edit to be performed.
-
-        Returns:
-            True
-
+        Can this agent perform the desired edit here? If so, return the edit trigger to then be passed to edit()
         """
-        return True
+        for i, line in enumerate(paper.get_lines()):
+            if "@ai:" in line:
+                yield EditTrigger(
+                    line_range=(i, i + 1),
+                    request_text=line.split("@ai:")[-1].strip()
+                )
 
-    def edit(self, document: Document, edit: EditTrigger) -> str:
+    def edit(self, paper: PaperRemote, edit: EditTrigger):
         """
         Perform an edit on a file, using a chat model.
-
-        Arguments:
-            document: The document to be edited.
-            edit: The edit to be performed.
-
-        Returns:
-            The edited text.
-
         """
         guidance.llm = guidance.llms.OpenAI(
             "gpt-3.5-turbo",
@@ -57,19 +48,20 @@ class OpenAIChatEditorAgent(EditorAgent):
         # it can chew on. This is configurable in the settings (config.py) and
         # in the future, TODO this will be a great place to add full-project-
         # level context.
-        document_context = document.lines[
+        lines = paper.get_lines()
+        document_context = lines[
             max(
                 edit.line_range[0] - Settings().context_radius,
                 0,
             ) : min(
                 edit.line_range[1] + Settings().context_radius,
-                len(document.lines),
+                len(lines),
             )
         ]
         # TODO: Should support parametrized prompts.
         editor = guidance.Program(ChatPrompts.BASIC_v1)
         editable_text = "\n".join(
-            document.lines[edit.line_range[0] : edit.line_range[1]]
+            lines[edit.line_range[0] : edit.line_range[1]]
         )
         response = editor(
             context="\n".join(document_context),
@@ -78,10 +70,14 @@ class OpenAIChatEditorAgent(EditorAgent):
         )
 
         edited = response["new_window"] + "\n"
-        logger.info(f"Edited text for document {document.name}:")
+        logger.info(f"Edited text for document {paper.dict()}:")
         logger.info(f"- {editable_text}")
         logger.info(f"+ {edited}")
 
         # Guarantee that we don't accidentally step on our own toes by adding
         # another @ai: request.
-        return edited.replace("@ai:", "-ai-:")
+        edited = edited.replace("@ai:", "-ai-:")
+
+        # TODO - configurable in settings
+        # Prepend original lines with comments
+        edited = editable_text.replace("\n", "\n%") + "\n" + edited

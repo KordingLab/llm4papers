@@ -46,16 +46,12 @@ class JSONFilePaperManager(PaperManager):
     def poll_once(self):
         self._load_json()
         logger.info(f"Polling {len(self.papers())} papers for edits.")
+        is_triggered = False
         for paper in self.papers():
             logger.info(f"Polling paper {paper.dict()}")
-            try:
-                edit = paper.get_next_edit_request()
-            except ValueError as e:
-                logger.info(e)
-                continue
-            paper.perform_edit(edit, self._agents)
-            return True
-        return False
+            paper.refresh_changes()
+            is_triggered |= self._do_edits_helper(paper)
+        return is_triggered
 
     def poll(self, interval: int = 5, falloff: str = "linear_threshold"):
         """
@@ -90,3 +86,14 @@ class JSONFilePaperManager(PaperManager):
                     end="\r",
                 )
                 time.sleep(1)
+
+    def _do_edits_helper(self, paper: PaperRemote) -> bool:
+        # TODO - threading with some job management so the same edit isn't spawned multiple times
+        did_edit = False
+        for agent in self._agents:
+            for edit in agent.get_available_edits(paper):
+                logger.info(f"Agent {agent} can edit paper {paper}: {edit}")
+                new_text = agent.edit(paper, edit)
+                paper.perform_edit(edit, new_text)
+                did_edit = True
+        return did_edit

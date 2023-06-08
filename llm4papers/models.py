@@ -14,13 +14,3 @@ class EditTrigger(BaseModel):
     line_range: tuple[int, int]
     request_text: str
     file_path: str = Field(default="main.tex")
-
-
-class Document(BaseModel):
-    """
-    A document that can be edited.
-
-    """
-
-    lines: list[str]
-    name: str

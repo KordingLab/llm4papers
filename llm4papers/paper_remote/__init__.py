@@ -12,22 +12,34 @@ class PaperRemote(Protocol):
     def dict(self):
         ...
 
-    def get_next_edit_request(self) -> EditTrigger:
+    def refresh_changes(self) -> None:
         """
-        Get the next edit request from the remote.
+        Check for any changes and update
 
         """
         ...
 
-    def perform_edit(self, edit: EditTrigger, agent_cascade: list[EditorAgent]):
+    def get_lines(self, path=None) -> list[str]:
+        """
+        Get the lines of the paper at path 'path' or the default document if path is None
+
+        """
+        ...
+
+    def is_edit_ok(self, edit: EditTrigger) -> bool:
+        """
+        Return True if the edit is ok to run now, False otherwise. Gives the PaperRemote an opportunity to veto the edit
+        before it starts.
+        """
+        ...
+
+    def perform_edit(self, edit: EditTrigger, edit_result: str):
         """
         Perform an edit on the remote.
 
         Arguments:
-            edit: The edit location requested by the AI.
-            agent_cascade: A list of EditorAgents to try in order, until one
-                can perform the edit. The first agent that can perform the edit
-                will be used. This is generally provided by a PapersManager.
+            edit: The original edit trigger
+            edit_result: The result of the edit
 
         Returns:
             None
