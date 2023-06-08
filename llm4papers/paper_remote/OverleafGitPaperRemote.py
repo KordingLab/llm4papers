@@ -8,7 +8,6 @@ import logging
 import pathlib
 import shutil
 import datetime
-import os
 from git import Repo
 
 from llm4papers.models import EditTrigger
@@ -80,7 +79,7 @@ class OverleafGitPaperRemote(PaperRemote):
         self._gitrepo = git_repo
         self._repo: Repo = None
         self._refresh_changes()
-        self._default_doc = os.path.join("tmp", self._reposlug, default_doc)
+        self._default_doc = pathlib.Path(self._repo.working_tree_dir) / default_doc
 
     def _refresh_changes(self):
         """
@@ -123,9 +122,10 @@ class OverleafGitPaperRemote(PaperRemote):
 
     def get_lines(self, path=None) -> list[str]:
         if path is not None:
-            if not os.path.exists(path):
-                path = os.path.join("tmp", self._reposlug, path)
-                if not os.path.exists(path):
+            path = pathlib.Path(path)
+            if not path.exists():
+                path = pathlib.Path(self._repo.working_tree_dir) / path
+                if path.exists():
                     raise FileNotFoundError(f"File {path} not found.")
         else:
             path = self._default_doc
