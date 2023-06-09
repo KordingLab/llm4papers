@@ -66,7 +66,7 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
 
         """
         return {
-            "type": "MultiDocumentPaperRemote",
+            "type": "InMemoryPaperRemote",
             "kwargs": {"documents": self._documents},
         }
 

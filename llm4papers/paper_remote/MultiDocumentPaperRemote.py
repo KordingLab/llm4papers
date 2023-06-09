@@ -1,6 +1,6 @@
 """
-Overleaf conveniently exposes a git remote for each project. This file handles
-reading and writing to Overleaf documents using gitpython.
+Some papers (such as LaTeX projects) are composed of multiple text files.
+This class handles reading and writing to such projects.
 
 """
 
@@ -34,6 +34,15 @@ class MultiDocumentPaperRemote(PaperRemote):
         """
         raise NotImplementedError()
 
+    def refresh(self):
+        """
+        Ensure that the paper remote is up-to-date with the remote.
+
+        For example, if changes have occurred in a git repo, or files have
+        changed since we last cached...
+
+        """
+
     def get_lines(self, doc_id: DocumentID) -> list[str]:
         """
         Get the lines of the specified document.
@@ -60,7 +69,7 @@ class MultiDocumentPaperRemote(PaperRemote):
         Return a dictionary representation of this remote.
 
         """
-        return {"type": "MultiDocumentPaperRemote", "kwargs": {}}
+        raise NotImplementedError()
 
     def perform_edit(self, edit: EditTrigger, edit_result: str):
         """

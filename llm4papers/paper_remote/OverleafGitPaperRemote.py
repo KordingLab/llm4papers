@@ -96,14 +96,6 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         # so we can cast to a string on this next line:
         return pathlib.Path(git_root) / str(doc_id)
 
-    def _requires_repo(self, func):
-        def wrapper(*args, **kwargs):
-            if self._repo is None:
-                self._refresh_changes()
-            return func(*args, **kwargs)
-
-        return wrapper
-
     def _refresh_changes(self):
         """
         This is a fallback method (that likely needs some love) to ensure that

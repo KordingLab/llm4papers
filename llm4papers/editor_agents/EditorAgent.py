@@ -57,7 +57,7 @@ class WriteOutDigitsEditorAgent(EditorAgent):
                 for word_num, word in enumerate(line.split()):
                     if word.isdigit():
                         yield EditTrigger(
-                            line_range=(line_num, line_num),
+                            line_range=(line_num, line_num + 1),
                             request_text=line,
                             doc_id=doc_id,
                         )
@@ -67,7 +67,9 @@ class WriteOutDigitsEditorAgent(EditorAgent):
         Convert a single-digit numeral to a word.
 
         """
-        text = paper.get_lines(edit.doc_id)[edit.line_range[0]]
+        text = "".join(
+            paper.get_lines(edit.doc_id)[edit.line_range[0] : edit.line_range[1]]
+        )
         numerals = {
             "0": "zero",
             "1": "one",
