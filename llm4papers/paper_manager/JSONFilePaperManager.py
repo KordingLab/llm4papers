@@ -99,9 +99,9 @@ class JSONFilePaperManager(PaperManager):
                 # TODO - be more specific about errors. Maybe create error subtypes
                 #  for both Agent errors and Paper errors
                 try:
-                    new_text = agent.edit(paper, edit)
-                    paper.perform_edit(edit, new_text)
-                    did_edit = True
+                    for result in agent.edit(paper, edit):
+                        success = paper.perform_edit(result)
+                        did_edit |= success
                 except Exception as e:
                     logger.error(f"Exception {e} while editing paper {paper}")
         return did_edit
