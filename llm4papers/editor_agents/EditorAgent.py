@@ -61,6 +61,7 @@ class WriteOutDigitsEditorAgent(EditorAgent):
                             request_text=line,
                             doc_id=doc_id,
                         )
+                    break
 
     def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
         """
