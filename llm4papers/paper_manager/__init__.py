@@ -1,11 +1,6 @@
-import logging
 from typing import Protocol
 
-from llm4papers.paper_remote import PaperRemote
-
-# Logging info:
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from llm4papers.paper_remote.PaperRemote import PaperRemote
 
 
 class PaperManager(Protocol):
