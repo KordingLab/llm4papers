@@ -69,15 +69,13 @@ class OpenAIChatEditorAgent(EditorAgent):
         # We scope the context to the edit line range, plus a little bit of
         # context on either side. This avoids the model getting more text than
         # it can chew on. This is configurable in the settings (config.py) and
-        # in the future, TODO this will be a great place to add full-project-
-        # level context.
+        # in the future, TODO use the auto context extraction + macro stuff
         lines = paper.get_lines(doc_range.doc_id)
         context_start = max(0, doc_range.selection[0] - Settings().context_radius)
         context_end = min(
             len(lines), doc_range.selection[1] + Settings().context_radius
         )
         document_context = lines[context_start:context_end]
-        # TODO: Should support parametrized prompts.
         editor = guidance.Program(ChatPrompts.BASIC_v1)
         editable_text = "\n".join(
             lines[doc_range.selection[0] : doc_range.selection[1]]
