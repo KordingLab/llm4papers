@@ -1,4 +1,4 @@
-from llm4papers.models import DocumentID, EditTrigger
+from llm4papers.models import DocumentID, EditTrigger, EditResult
 from llm4papers.paper_remote import MultiDocumentPaperRemote
 
 
@@ -11,6 +11,8 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
 
     """
 
+    current_revision_id: int
+
     def __init__(self, documents: dict[DocumentID, list[str]]):
         """
         Create a new InMemoryPaperRemote.
@@ -20,6 +22,7 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
 
         """
         self._documents = documents
+        self.current_revision_id = 0
 
     def list_doc_ids(self) -> list[DocumentID]:
         """
@@ -58,7 +61,9 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
             bool: True if the edit can still be performed.
 
         """
-        return edit.doc_id in self.list_doc_ids()
+
+        for doc_range in edit.input_ranges + edit.output_ranges:
+            return doc_range.doc_id in self.list_doc_ids()
 
     def dict(self) -> dict:
         """
@@ -70,20 +75,23 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
             "kwargs": {"documents": self._documents},
         }
 
-    def perform_edit(self, edit: EditTrigger, edit_result: str):
+    def perform_edit(self, edit: EditResult) -> bool:
         """
         Perform an edit on the remote.
 
         Arguments:
-            edit: The original edit trigger
-            edit_result: The result of the edit
+            edit: The result of the edit
 
         Returns:
-            None
+            True if edit successful, False otherwise
 
         """
-        new_lines = [line.removesuffix("\n") + "\n" for line in edit_result.split("\n")]
-        old_lines = self.get_lines(edit.doc_id)
-        edit_start, edit_end = edit.line_range
+        new_lines = [
+            line.removesuffix("\n") + "\n" for line in edit.content.split("\n")
+        ]
+        old_lines = self.get_lines(edit.range.doc_id)
+        edit_start, edit_end = edit.range.selection
         new_lines = old_lines[:edit_start] + new_lines + old_lines[edit_end:]
-        self._documents[edit.doc_id] = new_lines
+        self._documents[edit.range.doc_id] = new_lines
+        self.current_revision_id += 1
+        return True

@@ -1,5 +1,4 @@
-from llm4papers.models import DocumentID, EditTrigger
-
+from llm4papers.models import DocumentID, RevisionID, EditTrigger, EditResult
 
 from typing import Protocol
 
@@ -19,6 +18,8 @@ class PaperRemote(Protocol):
 
     """
 
+    current_revision_id: RevisionID
+
     def dict(self):
         ...
 
@@ -30,6 +31,7 @@ class PaperRemote(Protocol):
         changed since we last cached...
 
         """
+        ...
 
     def get_lines(self, doc_id: DocumentID) -> list[str]:
         """
@@ -61,13 +63,14 @@ class PaperRemote(Protocol):
         """
         ...
 
-    def perform_edit(self, edit: EditTrigger, edit_result: str):
+    def perform_edit(self, edit: EditResult) -> bool:
         """
         Perform an edit on the remote.
+
         Arguments:
-            edit: The original edit trigger
-            edit_result: The result of the edit
+            edit: An EditResult object
+
         Returns:
-            None
+            True if the edit was successful, False otherwise
         """
         ...

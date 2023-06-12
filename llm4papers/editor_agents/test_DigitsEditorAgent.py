@@ -9,8 +9,8 @@ def test_WriteOutDigitsEditorAgent():
 
     # Perform the edits:
     for edit in agent.get_available_edits(needs_edit_paper):
-        result = agent.edit(needs_edit_paper, edit)
-        needs_edit_paper.perform_edit(edit, result)
+        for result in agent.edit(needs_edit_paper, edit):
+            needs_edit_paper.perform_edit(result)
 
     # Check that the edits worked:
     assert needs_edit_paper.get_lines("paper.txt") == ["one two three\n"]

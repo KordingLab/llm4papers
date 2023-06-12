@@ -1,7 +1,7 @@
-from llm4papers.models import EditTrigger
-from llm4papers.paper_remote.PaperRemote import PaperRemote
+from typing import Protocol, Iterable
 
-from typing import Protocol, Generator
+from llm4papers.models import EditTrigger, EditResult, EditType, DocumentRange
+from llm4papers.paper_remote import PaperRemote
 
 
 class EditorAgent(Protocol):
@@ -17,22 +17,16 @@ class EditorAgent(Protocol):
 
     """
 
-    def get_available_edits(
-        self, paper: PaperRemote
-    ) -> Generator[EditTrigger, None, None]:
+    def get_available_edits(self, paper: PaperRemote) -> Iterable[EditTrigger]:
         """
         Return all the edits that are possible in this paper by this Agent.
         """
         ...
 
-    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> Iterable[EditResult]:
         """
         Edit a file, returning the new text that will replace the lines specified
         in the Trigger.
-
-        TODO - refactor so that edits can be more than just strings and can happen at
-            other parts of the document.
-
         """
         ...
 
@@ -45,9 +39,7 @@ class WriteOutDigitsEditorAgent(EditorAgent):
 
     """
 
-    def get_available_edits(
-        self, paper: PaperRemote
-    ) -> Generator[EditTrigger, None, None]:
+    def get_available_edits(self, paper: PaperRemote) -> Iterable[EditTrigger]:
         """
         Find all standalone digits in the paper.
 
@@ -56,33 +48,41 @@ class WriteOutDigitsEditorAgent(EditorAgent):
             for line_num, line in enumerate(paper.get_lines(doc_id)):
                 for word_num, word in enumerate(line.split()):
                     if word.isdigit():
-                        yield EditTrigger(
-                            line_range=(line_num, line_num + 1),
-                            request_text=line,
+                        doc_range = DocumentRange(
                             doc_id=doc_id,
+                            revision_id=paper.current_revision_id,
+                            selection=(line_num, line_num + 1),
+                        )
+                        yield EditTrigger(
+                            input_ranges=[doc_range],
+                            output_ranges=[doc_range],
+                            request_text=line,
                         )
                     break
 
-    def edit(self, paper: PaperRemote, edit: EditTrigger) -> str:
+    def edit(self, paper: PaperRemote, edit: EditTrigger) -> Iterable[EditResult]:
         """
         Convert a single-digit numeral to a word.
 
         """
-        text = "".join(
-            paper.get_lines(edit.doc_id)[edit.line_range[0] : edit.line_range[1]]
-        )
-        numerals = {
-            "0": "zero",
-            "1": "one",
-            "2": "two",
-            "3": "three",
-            "4": "four",
-            "5": "five",
-            "6": "six",
-            "7": "seven",
-            "8": "eight",
-            "9": "nine",
-        }
-        for numeral, word in numerals.items():
-            text = text.replace(numeral, word)
-        return text
+        for doc_range in edit.input_ranges:
+            text = "".join(
+                paper.get_lines(doc_range.doc_id)[
+                    doc_range.selection[0] : doc_range.selection[1]
+                ]
+            )
+            numerals = {
+                "0": "zero",
+                "1": "one",
+                "2": "two",
+                "3": "three",
+                "4": "four",
+                "5": "five",
+                "6": "six",
+                "7": "seven",
+                "8": "eight",
+                "9": "nine",
+            }
+            for numeral, word in numerals.items():
+                text = text.replace(numeral, word)
+            yield EditResult(type=EditType.replace, range=doc_range, content=text)

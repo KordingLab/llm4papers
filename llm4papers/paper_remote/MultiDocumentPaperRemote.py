@@ -4,7 +4,7 @@ This class handles reading and writing to such projects.
 
 """
 
-from llm4papers.models import EditTrigger
+from llm4papers.models import EditTrigger, EditResult
 from llm4papers.paper_remote.PaperRemote import PaperRemote, DocumentID
 
 
@@ -71,16 +71,14 @@ class MultiDocumentPaperRemote(PaperRemote):
         """
         raise NotImplementedError()
 
-    def perform_edit(self, edit: EditTrigger, edit_result: str):
+    def perform_edit(self, edit: EditResult) -> bool:
         """
         Perform an edit on the remote.
 
         Arguments:
-            edit: The original edit trigger
-            edit_result: The result of the edit
+            edit: An EditResult object
 
         Returns:
-            None
-
+            True if the edit was successful, False otherwise
         """
         raise NotImplementedError()
