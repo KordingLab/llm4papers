@@ -1,14 +1,13 @@
 import json
 import pathlib
 import time
-import importlib
 
 from llm4papers.config import OpenAIConfig
 from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
 from llm4papers.paper_manager import PaperManager
 from llm4papers.logger import logger
-from llm4papers.paper_remote.PaperRemote import PaperRemote
+from llm4papers.paper_remote import PaperRemote, lookup_paper_remote_class
 
 
 class JSONFilePaperManager(PaperManager):
@@ -49,15 +48,9 @@ class JSONFilePaperManager(PaperManager):
                 continue
 
             try:
-                module = importlib.import_module(
-                    f"llm4papers.paper_remote.{paper_dict['type']}"
-                )
-                cls = getattr(module, paper_dict["type"])
-            except (ImportError, AttributeError):
-                logger.error(
-                    f"Could not import {paper_dict['type']} from "
-                    f"llm4papers.paper_remote.{paper_dict['type']}"
-                )
+                cls = lookup_paper_remote_class(paper_dict["type"])
+            except ValueError as e:
+                logger.error(str(e))
                 continue
 
             try:
