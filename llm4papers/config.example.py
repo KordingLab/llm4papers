@@ -6,6 +6,11 @@ class OpenAIConfig(BaseSettings):
     organization: str = "org-###"
 
 
+class OverleafConfig(BaseSettings):
+    username: str = "###"
+    password: str = "###"
+
+
 class Settings(BaseSettings):
     # How many lines of context to include in the edit request. A value of 10
     # means that the edit request will include 10 lines before and 10 lines

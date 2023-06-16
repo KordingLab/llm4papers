@@ -7,6 +7,7 @@ reading and writing to Overleaf documents using gitpython.
 import pathlib
 import shutil
 import datetime
+from urllib.parse import quote
 from git import Repo  # type: ignore
 
 from llm4papers.models import EditTrigger, EditResult, EditType, DocumentID, RevisionID
@@ -59,6 +60,23 @@ def _too_close_to_human_edits(
     return False
 
 
+def _add_auth(uri: str):
+    if "@" not in uri:
+        try:
+            from llm4papers.config import OverleafConfig
+        except ImportError:
+            logger.debug("No config file found, assuming public repo.")
+            return uri
+
+        config = OverleafConfig()
+        un, pw = quote(config.username), quote(config.password)
+        protocol = (uri.split("://")[0] + "://") if "://" in uri else ""
+        address = uri.split("://")[-1]
+        return f"{protocol}{un}:{pw}@{address}"
+    else:
+        return uri
+
+
 class OverleafGitPaperRemote(MultiDocumentPaperRemote):
     """
     Overleaf exposes a git remote for each project. This class handles reading
@@ -77,7 +95,8 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
 
         """
         self._reposlug = git_cached_repo.split("/")[-1].split(".")[0]
-        self._git_cached_repository_uri = git_cached_repo
+        self._git_cached_repository_uri = _add_auth(git_cached_repo)
+        self._git_cached_repo_arg = git_cached_repo
         self._cached_repo: Repo | None = None
         self.refresh()
 
@@ -193,7 +212,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
 
         """
         return {
-            "git_cached_repo": self._get_repo().remotes.origin.url,
+            "git_cached_repo": self._git_cached_repo_arg,
             "repo_slug": self._reposlug,
             "type": "OverleafGitPaperRemote",
         }
