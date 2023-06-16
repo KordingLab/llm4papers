@@ -65,15 +65,10 @@ class InMemoryPaperRemote(MultiDocumentPaperRemote):
         for doc_range in edit.input_ranges + edit.output_ranges:
             return doc_range.doc_id in self.list_doc_ids()
 
-    def dict(self) -> dict:
-        """
-        Return a dictionary representation of this remote.
-
-        """
-        return {
-            "type": "InMemoryPaperRemote",
-            "kwargs": {"documents": self._documents},
-        }
+    def to_dict(self):
+        d = super().to_dict()
+        d["kwargs"]["documents"] = self._documents
+        return d
 
     def perform_edit(self, edit: EditResult) -> bool:
         """

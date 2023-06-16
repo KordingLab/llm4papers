@@ -1,7 +1,3 @@
-"""
-This file includes the PaperManager, types, as well as other systems to edit an
-academic paper using a large language model AI.
-"""
 from typing import Hashable
 from pydantic import BaseModel
 from enum import Enum

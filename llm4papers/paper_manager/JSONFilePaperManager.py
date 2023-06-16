@@ -1,6 +1,7 @@
 import json
 import pathlib
 import time
+import importlib
 
 from llm4papers.config import OpenAIConfig
 from llm4papers.editor_agents.EditorAgent import EditorAgent
@@ -8,7 +9,6 @@ from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
 from llm4papers.paper_manager import PaperManager
 from llm4papers.logger import logger
 from llm4papers.paper_remote.PaperRemote import PaperRemote
-from llm4papers.paper_remote.OverleafGitPaperRemote import OverleafGitPaperRemote
 
 
 class JSONFilePaperManager(PaperManager):
@@ -33,24 +33,48 @@ class JSONFilePaperManager(PaperManager):
     def add_paper_remote(self, remote: PaperRemote):
         # Make sure it doesn't already exist.
         for paper in self.papers():
-            if paper.dict() == remote.dict():
+            if paper.to_dict() == remote.to_dict():
                 logger.info("Paper already exists, not adding.")
                 return
-        self._json["papers"].append(remote.dict())
+        self._json["papers"].append(remote.to_dict())
         with open(self._json_path, "w") as f:
             json.dump(self._json, f)
 
     def papers(self) -> list[PaperRemote]:
         papers_json = self._json["papers"]
-        # TODO - support other PaperRemote classes with some abstraction here
-        return [OverleafGitPaperRemote(paper["git_repo"]) for paper in papers_json]
+        papers = []
+        for paper_dict in papers_json:
+            if "type" not in paper_dict:
+                logger.error(f"Paper dict {paper_dict} has no 'type' key.")
+                continue
+
+            try:
+                module = importlib.import_module(
+                    f"llm4papers.paper_remote.{paper_dict['type']}"
+                )
+                cls = getattr(module, paper_dict["type"])
+            except (ImportError, AttributeError):
+                logger.error(
+                    f"Could not import {paper_dict['type']} from "
+                    f"llm4papers.paper_remote.{paper_dict['type']}"
+                )
+                continue
+
+            try:
+                paper = cls.from_dict(paper_dict)
+            except Exception as e:
+                logger.error(f"Error creating paper from dict {paper_dict}: {e}")
+                continue
+
+            papers.append(paper)
+        return papers
 
     def poll_once(self):
         self._load_json()
         logger.info(f"Polling {len(self.papers())} papers for edits.")
         is_triggered = False
         for paper in self.papers():
-            logger.info(f"Polling paper {paper.dict()}")
+            logger.info(f"Polling paper {paper.to_dict()}")
             paper.refresh()
             is_triggered |= self._do_edits_helper(paper)
         return is_triggered
