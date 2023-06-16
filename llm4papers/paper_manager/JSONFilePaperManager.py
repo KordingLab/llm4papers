@@ -54,8 +54,10 @@ class JSONFilePaperManager(PaperManager):
             if paper_dict["type"] in self._paper_remote_class_lookup:
                 cls = self._paper_remote_class_lookup[paper_dict["type"]]
             else:
-                logger.error(f"PaperRemote type {paper_dict['type']} is unknown (did "
-                             f"you call manager.register_paper_remote_class?).")
+                logger.error(
+                    f"PaperRemote type {paper_dict['type']} is unknown (did "
+                    f"you call manager.register_paper_remote_class?)."
+                )
                 continue
 
             try:
