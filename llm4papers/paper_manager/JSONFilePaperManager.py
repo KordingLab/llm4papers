@@ -7,7 +7,7 @@ from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
 from llm4papers.paper_manager import PaperManager
 from llm4papers.logger import logger
-from llm4papers.paper_remote import PaperRemote, lookup_paper_remote_class
+from llm4papers.paper_remote import PaperRemote
 
 
 class JSONFilePaperManager(PaperManager):
@@ -19,6 +19,7 @@ class JSONFilePaperManager(PaperManager):
         self._agents = agents or [OpenAIChatEditorAgent(OpenAIConfig().dict())]
         self._json_path = pathlib.Path(json_path)
         self._load_json()
+        self._paper_remote_class_lookup = {}
 
     def _load_json(self):
         if not self._json_path.exists():
@@ -28,6 +29,9 @@ class JSONFilePaperManager(PaperManager):
         else:
             with open(self._json_path) as f:
                 self._json = json.load(f)
+
+    def register_paper_remote_class(self, cls):
+        self._paper_remote_class_lookup[cls.__name__] = cls
 
     def add_paper_remote(self, remote: PaperRemote):
         # Make sure it doesn't already exist.
@@ -47,10 +51,11 @@ class JSONFilePaperManager(PaperManager):
                 logger.error(f"Paper dict {paper_dict} has no 'type' key.")
                 continue
 
-            try:
-                cls = lookup_paper_remote_class(paper_dict["type"])
-            except ValueError as e:
-                logger.error(str(e))
+            if paper_dict["type"] in self._paper_remote_class_lookup:
+                cls = self._paper_remote_class_lookup[paper_dict["type"]]
+            else:
+                logger.error(f"PaperRemote type {paper_dict['type']} is unknown (did "
+                             f"you call manager.register_paper_remote_class?).")
                 continue
 
             try:
