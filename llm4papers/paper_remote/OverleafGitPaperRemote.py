@@ -119,7 +119,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         # so we can cast to a string on this next line:
         return pathlib.Path(git_root) / str(doc_id)
 
-    def refresh(self):
+    def refresh(self, retry: bool = True):
         """
         This is a fallback method (that likely needs some love) to ensure that
         the repo is up to date with the latest upstream changes.
@@ -161,7 +161,10 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             self._cached_repo = None
             # recursively delete the repo
             shutil.rmtree(f"/tmp/{self._reposlug}")
-            self.refresh()
+            if retry:
+                self.refresh(retry=False)
+            else:
+                raise e
 
     def list_doc_ids(self) -> list[DocumentID]:
         """
