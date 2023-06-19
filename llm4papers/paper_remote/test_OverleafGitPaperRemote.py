@@ -6,8 +6,7 @@ from pathlib import Path
 
 
 def _recursive_delete(path: Path):
-    """Delete a file or directory, recursively.
-    """
+    """Delete a file or directory, recursively."""
     if path.is_file():
         path.unlink()
     elif path.is_dir():
@@ -20,7 +19,7 @@ def _recursive_delete(path: Path):
 # of
 @pytest.fixture
 def temporary_git_paper_repo():
-    src = Path("../test_data/dummy_overleaf_git_project/")
+    src = Path("test_data/dummy_overleaf_git_project/")
     # Remove the .git directory from the dummy project to make a fresh start.
     git_root = src / ".git"
     if git_root.exists():
