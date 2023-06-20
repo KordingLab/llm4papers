@@ -9,14 +9,34 @@ import shutil
 import datetime
 from urllib.parse import quote
 from git import Repo  # type: ignore
+from typing import Iterable
+import re
 
-from llm4papers.models import EditTrigger, EditResult, EditType, DocumentID, RevisionID
+from llm4papers.models import EditTrigger, EditResult, EditType, DocumentID, RevisionID, LineRange
 from llm4papers.paper_remote.MultiDocumentPaperRemote import MultiDocumentPaperRemote
 from llm4papers.logger import logger
 
 
+def _diff_to_ranges(diff: str) -> Iterable[LineRange]:
+    """Given a git diff, return LineRange object(s) indicating which lines in the
+    original document were changed.
+    """
+    diff_edit_re = r"@{2,}\s*-(?P<line>\d+),(?P<count>\d+)\s*\+\d+,\d+\s*@{2,}"
+    for match in re.finditer(diff_edit_re, diff):
+        git_line_number = int(match.group("line"))
+        git_line_count = int(match.group("count"))
+        # Git counts from 1 and gives (start, length). LineRange counts from 0 and gives
+        # (start, end).
+        yield (git_line_number - 1, git_line_number - 1 + git_line_count)
+
+
+def _ranges_overlap(a: LineRange, b: LineRange) -> bool:
+    """Given two LineRanges, return True if they overlap, False otherwise."""
+    return not (a[1] < b[0] or b[1] < a[0])
+
+
 def _too_close_to_human_edits(
-    repo: Repo, filename: str, line_number: int, last_n: int = 2
+    repo: Repo, filename: str, line_range: LineRange, last_n: int = 2
 ) -> bool:
     """
     Determine if the line `line_number` of the file `filename` was changed in
@@ -44,19 +64,13 @@ def _too_close_to_human_edits(
     # Get the diff for HEAD~n:
     total_diff = repo.git.diff(f"HEAD~{last_n}", filename, unified=0)
 
-    # Get the current repo state of that line:
-    current_line = repo.git.show(f"HEAD:{filename}").split("\n")[line_number]
-
-    logger.debug("Diff: " + total_diff)
-    logger.debug("Current line: " + current_line)
-
-    # Match the line in the diff:
-    if current_line in total_diff:
-        logger.info(
-            f"Found current line ({current_line[:10]}...) in diff, rejecting edit."
-        )
-        return True
-
+    for git_line_range in _diff_to_ranges(total_diff):
+        if _ranges_overlap(git_line_range, line_range):
+            logger.info(
+                f"Line range {line_range} overlaps with git-edited {git_line_range}, "
+                f"rejecting edit."
+            )
+            return True
     return False
 
 
@@ -199,14 +213,13 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         # want to wait for the user to move on to the next line.
         for doc_range in edit.input_ranges + edit.output_ranges:
             repo_scoped_file = str(self._doc_id_to_path(doc_range.doc_id))
-            for i in range(doc_range.selection[0], doc_range.selection[1]):
-                if _too_close_to_human_edits(self._get_repo(), repo_scoped_file, i):
-                    logger.info(
-                        f"Temporarily skipping edit request in {doc_range.doc_id}"
-                        " at line {i} because it was still in progress"
-                        " in the last commit."
-                    )
-                    return False
+            if _too_close_to_human_edits(self._get_repo(), repo_scoped_file, doc_range.selection):
+                logger.info(
+                    f"Temporarily skipping edit request in {doc_range.doc_id}"
+                    " at line {i} because it was still in progress"
+                    " in the last commit."
+                )
+                return False
         return True
 
     def to_dict(self):
