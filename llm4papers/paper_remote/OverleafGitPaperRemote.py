@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import datetime
 from urllib.parse import quote
-from git import Repo  # type: ignore
+from git import Repo, GitCommandError  # type: ignore
 from typing import Iterable
 import re
 
@@ -173,12 +173,12 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             logger.info(f"Repo dirty: {self._get_repo().is_dirty()}")
             try:
                 self._get_repo().git.stash("pop")
-            except Exception as e:
+            except GitCommandError as e:
                 # TODO: this just means there was nothing to pop, but
                 # we should handle this more gracefully.
                 logger.debug(f"Nothing to pop: {e}")
                 pass
-        except Exception as e:
+        except GitCommandError as e:
             logger.error(
                 f"Error pulling from repo {self._reposlug}: {e}. "
                 "Falling back on DESTRUCTION!!!"
@@ -254,18 +254,24 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         """
         logger.info(f"Performing edit {edit} on remote {self._reposlug}")
 
-        with self.rewind(edit.range.revision_id, message="AI edit") as paper:
-            if edit.type == EditType.replace:
-                success = paper._perform_replace(edit)
-            elif edit.type == EditType.comment:
-                success = paper._perform_comment(edit)
-            else:
-                raise ValueError(f"Unknown edit type {edit.type}")
+        try:
+            with self.rewind(edit.range.revision_id, message="AI edit") as paper:
+                if edit.type == EditType.replace:
+                    success = paper._perform_replace(edit)
+                elif edit.type == EditType.comment:
+                    success = paper._perform_comment(edit)
+                else:
+                    raise ValueError(f"Unknown edit type {edit.type}")
+        except GitCommandError as e:
+            logger.error(
+                f"Git error performing edit {edit} on remote {self._reposlug}: {e}"
+            )
+            success = False
 
         if success:
-            # TODO: We could do a better job catching WARNs here and then maybe setting
-            #  success = False
             self._get_repo().git.push()
+        else:
+            self.refresh()
 
         return success
 
@@ -331,5 +337,10 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             self._remote._get_repo().git.add(all=True)
             self._remote._get_repo().index.commit(self._message)
             self._remote._get_repo().git.checkout(self._restore_branch.name)
-            self._remote._get_repo().git.merge("tmp-edit-branch")
-            self._remote._get_repo().git.branch("-D", "tmp-edit-branch")
+            try:
+                self._remote._get_repo().git.merge("tmp-edit-branch")
+            except GitCommandError as e:
+                self._remote._get_repo().git.merge("--abort")
+                raise e
+            finally:
+                self._remote._get_repo().git.branch("-D", "tmp-edit-branch")

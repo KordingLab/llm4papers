@@ -114,6 +114,55 @@ def test_merge_resolution_from_revision_id(temporary_git_paper_repo):
     assert i_second_edit > i_end_doc_2
 
 
+def test_recover_gracefully_from_merge_conflict(temporary_git_paper_repo):
+    remote = OverleafGitPaperRemote(temporary_git_paper_repo)
+
+    good_edit = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(20, 21),
+        ),
+        content="Hey look\nI'm overwriting\nsome stuff\nin the middle of the\ndoc.\n",
+    )
+
+    conflict_edit = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(20, 22),
+        ),
+        content="Hey so am I!\n",
+    )
+
+    i_end_doc = len(remote.get_lines("main.tex")) - 1
+    good_edit_2 = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(i_end_doc + 1, i_end_doc + 1),
+        ),
+        content="\nThis line should appear somewhere at the end\n",
+    )
+
+    # Test that we can do good/conflict/good and get the two good edits to succeed
+    # while the conflict edit fails silently (logged but not raised)
+    remote.perform_edit(good_edit)
+    remote.perform_edit(conflict_edit)
+    remote.perform_edit(good_edit_2)
+
+    lines = remote.get_lines("main.tex")
+    # Assert good_edit went through
+    assert any("I'm overwriting" in line for line in lines)
+    # Assert conflict_edit did not go through
+    assert not any("Hey so am I!" in line for line in lines)
+    # Assert good_edit_2 went through
+    assert any("This line should appear" in line for line in lines)
+
+
 def test_can_always_make_edits_to_overleaf_git_paper_remote(temporary_git_paper_repo):
     """
     Confirm that edits can always be made to an in-memory paper remote.
