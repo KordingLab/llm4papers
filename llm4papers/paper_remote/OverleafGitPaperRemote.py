@@ -357,6 +357,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             try:
                 self._remote._get_repo().git.merge("tmp-edit-branch")
             except GitCommandError as e:
+                # TODO - why does this line fail on GH actions but pass locally?
                 self._remote._get_repo().git.merge("--abort")
                 raise e
             finally:
