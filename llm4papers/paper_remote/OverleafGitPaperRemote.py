@@ -206,16 +206,10 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
                     return False
         return True
 
-    def dict(self) -> dict:
-        """
-        Return a dictionary representation of this remote.
-
-        """
-        return {
-            "git_cached_repo": self._git_cached_repo_arg,
-            "repo_slug": self._reposlug,
-            "type": "OverleafGitPaperRemote",
-        }
+    def to_dict(self):
+        d = super().to_dict()
+        d["kwargs"]["git_cached_repo"] = self._git_cached_repo_arg
+        return d
 
     def perform_edit(self, edit: EditResult) -> bool:
         """

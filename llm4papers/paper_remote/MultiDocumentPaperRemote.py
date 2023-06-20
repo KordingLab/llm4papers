@@ -5,7 +5,7 @@ This class handles reading and writing to such projects.
 """
 
 from llm4papers.models import EditTrigger, EditResult
-from llm4papers.paper_remote.PaperRemote import PaperRemote, DocumentID
+from llm4papers.paper_remote.PaperRemote import PaperRemote, DocumentID, PaperRemoteDict
 
 
 class MultiDocumentPaperRemote(PaperRemote):
@@ -64,12 +64,25 @@ class MultiDocumentPaperRemote(PaperRemote):
         """
         raise NotImplementedError()
 
-    def dict(self) -> dict:
+    def to_dict(self) -> PaperRemoteDict:
         """
         Return a dictionary representation of this remote.
 
+        Subclasses should start with super().to_dict() and then update the "kwargs"
         """
-        raise NotImplementedError()
+        return {
+            "type": self.__class__.__name__,
+            "kwargs": {},
+        }
+
+    @classmethod
+    def from_dict(cls, d: PaperRemoteDict) -> "MultiDocumentPaperRemote":
+        if cls.__name__ != d["type"]:
+            raise ValueError(
+                f"Cannot create {cls.__name__} from dict of type {d['type']}"
+            )
+        else:
+            return cls(**d["kwargs"])
 
     def perform_edit(self, edit: EditResult) -> bool:
         """

@@ -1,6 +1,11 @@
 from llm4papers.models import DocumentID, RevisionID, EditTrigger, EditResult
 
-from typing import Protocol
+from typing import Protocol, TypedDict, Any
+
+
+class PaperRemoteDict(TypedDict):
+    type: str
+    kwargs: dict[str, Any]
 
 
 class PaperRemote(Protocol):
@@ -20,7 +25,11 @@ class PaperRemote(Protocol):
 
     current_revision_id: RevisionID
 
-    def dict(self):
+    def to_dict(self) -> PaperRemoteDict:
+        ...
+
+    @classmethod
+    def from_dict(cls, d: PaperRemoteDict) -> "PaperRemote":
         ...
 
     def refresh(self):

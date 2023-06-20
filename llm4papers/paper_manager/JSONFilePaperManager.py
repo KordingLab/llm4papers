@@ -7,8 +7,7 @@ from llm4papers.editor_agents.EditorAgent import EditorAgent
 from llm4papers.editor_agents.OpenAIChatEditorAgent import OpenAIChatEditorAgent
 from llm4papers.paper_manager import PaperManager
 from llm4papers.logger import logger
-from llm4papers.paper_remote.PaperRemote import PaperRemote
-from llm4papers.paper_remote.OverleafGitPaperRemote import OverleafGitPaperRemote
+from llm4papers.paper_remote import PaperRemote
 
 
 class JSONFilePaperManager(PaperManager):
@@ -20,6 +19,7 @@ class JSONFilePaperManager(PaperManager):
         self._agents = agents or [OpenAIChatEditorAgent(OpenAIConfig().dict())]
         self._json_path = pathlib.Path(json_path)
         self._load_json()
+        self._paper_remote_class_lookup = {}
 
     def _load_json(self):
         if not self._json_path.exists():
@@ -30,27 +30,51 @@ class JSONFilePaperManager(PaperManager):
             with open(self._json_path) as f:
                 self._json = json.load(f)
 
+    def register_paper_remote_class(self, cls):
+        self._paper_remote_class_lookup[cls.__name__] = cls
+
     def add_paper_remote(self, remote: PaperRemote):
         # Make sure it doesn't already exist.
         for paper in self.papers():
-            if paper.dict() == remote.dict():
+            if paper.to_dict() == remote.to_dict():
                 logger.info("Paper already exists, not adding.")
                 return
-        self._json["papers"].append(remote.dict())
+        self._json["papers"].append(remote.to_dict())
         with open(self._json_path, "w") as f:
             json.dump(self._json, f)
 
     def papers(self) -> list[PaperRemote]:
         papers_json = self._json["papers"]
-        # TODO - support other PaperRemote classes with some abstraction here
-        return [OverleafGitPaperRemote(paper["git_repo"]) for paper in papers_json]
+        papers = []
+        for paper_dict in papers_json:
+            if "type" not in paper_dict:
+                logger.error(f"Paper dict {paper_dict} has no 'type' key.")
+                continue
+
+            if paper_dict["type"] in self._paper_remote_class_lookup:
+                cls = self._paper_remote_class_lookup[paper_dict["type"]]
+            else:
+                logger.error(
+                    f"PaperRemote type {paper_dict['type']} is unknown (did "
+                    f"you call manager.register_paper_remote_class?)."
+                )
+                continue
+
+            try:
+                paper = cls.from_dict(paper_dict)
+            except Exception as e:
+                logger.error(f"Error creating paper from dict {paper_dict}: {e}")
+                continue
+
+            papers.append(paper)
+        return papers
 
     def poll_once(self):
         self._load_json()
         logger.info(f"Polling {len(self.papers())} papers for edits.")
         is_triggered = False
         for paper in self.papers():
-            logger.info(f"Polling paper {paper.dict()}")
+            logger.info(f"Polling paper {paper.to_dict()}")
             paper.refresh()
             is_triggered |= self._do_edits_helper(paper)
         return is_triggered
