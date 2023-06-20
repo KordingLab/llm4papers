@@ -163,6 +163,41 @@ def test_recover_gracefully_from_merge_conflict(temporary_git_paper_repo):
     assert any("This line should appear" in line for line in lines)
 
 
+def test_recover_gracefully_from_bad_edit(temporary_git_paper_repo):
+    remote = OverleafGitPaperRemote(temporary_git_paper_repo)
+
+    good_edit = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(20, 21),
+        ),
+        content="Hey look\nI'm overwriting\nsome stuff\nin the middle of the\ndoc.\n",
+    )
+
+    # Edit is bad because file is far fewer than 100 lines long
+    bad_edit = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(100, 101),
+        ),
+        content="Hey so am I!\n",
+    )
+
+    # Test that we can do bad/good and get just the good edit to succeed
+    remote.perform_edit(bad_edit)
+    remote.perform_edit(good_edit)
+
+    lines = remote.get_lines("main.tex")
+    # Assert good_edit went through
+    assert any("I'm overwriting" in line for line in lines)
+    # Assert conflict_edit did not go through
+    assert not any("Hey so am I!" in line for line in lines)
+
+
 def test_can_always_make_edits_to_overleaf_git_paper_remote(temporary_git_paper_repo):
     """
     Confirm that edits can always be made to an in-memory paper remote.
@@ -201,14 +236,14 @@ def test_edit_ok_if_different_part_of_doc(temporary_git_paper_repo):
             DocumentRange(
                 doc_id="main.tex",
                 revision_id=remote.current_revision_id,
-                selection=(num_lines, num_lines + 1),
+                selection=(num_lines, num_lines),
             )
         ],
         output_ranges=[
             DocumentRange(
                 doc_id="main.tex",
                 revision_id=remote.current_revision_id,
-                selection=(num_lines, num_lines + 1),
+                selection=(num_lines, num_lines),
             )
         ],
         request_text=new_last_line,

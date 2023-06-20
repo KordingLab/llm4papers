@@ -287,6 +287,9 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         """
         doc_range, text = edit.range, edit.content
         try:
+            num_lines = len(self.get_lines(doc_range.doc_id))
+            if any(i < 0 for i in doc_range.selection) or doc_range.selection[1] < doc_range.selection[0] or any(i > len(self.get_lines(doc_range.doc_id)) for i in doc_range.selection):
+                raise IndexError(f"Invalid selection {doc_range.selection} for document {doc_range.doc_id} with {num_lines} lines.")
             lines = self.get_lines(doc_range.doc_id)
             lines = (
                 lines[: doc_range.selection[0]]
