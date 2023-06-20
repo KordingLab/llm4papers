@@ -12,22 +12,34 @@ from git import Repo  # type: ignore
 from typing import Iterable
 import re
 
-from llm4papers.models import EditTrigger, EditResult, EditType, DocumentID, RevisionID, LineRange
+from llm4papers.models import (
+    EditTrigger,
+    EditResult,
+    EditType,
+    DocumentID,
+    RevisionID,
+    LineRange,
+)
 from llm4papers.paper_remote.MultiDocumentPaperRemote import MultiDocumentPaperRemote
 from llm4papers.logger import logger
+
+
+diff_line_edit_re = re.compile(
+    r"@{2,}\s*-(?P<old_line>\d+),(?P<old_count>\d+)\s*\+(?P<new_line>\d+),(?P<new_count>\d+)\s*@{2,}"
+)
 
 
 def _diff_to_ranges(diff: str) -> Iterable[LineRange]:
     """Given a git diff, return LineRange object(s) indicating which lines in the
     original document were changed.
     """
-    diff_edit_re = r"@{2,}\s*-(?P<line>\d+),(?P<count>\d+)\s*\+\d+,\d+\s*@{2,}"
-    for match in re.finditer(diff_edit_re, diff):
-        git_line_number = int(match.group("line"))
-        git_line_count = int(match.group("count"))
-        # Git counts from 1 and gives (start, length). LineRange counts from 0 and gives
-        # (start, end).
-        yield (git_line_number - 1, git_line_number - 1 + git_line_count)
+    for match in diff_line_edit_re.finditer(diff):
+        git_line_number = int(match.group("new_line"))
+        git_line_count = int(match.group("new_count"))
+        # Git counts from 1 and gives (start, length), inclusive. LineRange counts from
+        # 0 and gives start:end indices (exclusive).
+        zero_index_start = git_line_number - 1
+        yield zero_index_start, zero_index_start + git_line_count
 
 
 def _ranges_overlap(a: LineRange, b: LineRange) -> bool:
@@ -213,7 +225,9 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         # want to wait for the user to move on to the next line.
         for doc_range in edit.input_ranges + edit.output_ranges:
             repo_scoped_file = str(self._doc_id_to_path(doc_range.doc_id))
-            if _too_close_to_human_edits(self._get_repo(), repo_scoped_file, doc_range.selection):
+            if _too_close_to_human_edits(
+                self._get_repo(), repo_scoped_file, doc_range.selection
+            ):
                 logger.info(
                     f"Temporarily skipping edit request in {doc_range.doc_id}"
                     " at line {i} because it was still in progress"

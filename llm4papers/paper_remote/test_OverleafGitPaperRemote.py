@@ -1,9 +1,10 @@
 from .OverleafGitPaperRemote import OverleafGitPaperRemote
-from ..models import EditTrigger, DocumentRange
+from ..models import EditTrigger, EditResult, EditType, DocumentRange
 import pytest
 import git
 from pathlib import Path
 import shutil
+import time
 
 
 def _recursive_delete(path: Path):
@@ -44,6 +45,11 @@ def temporary_git_paper_repo():
     if dst.exists():
         _recursive_delete(dst)
 
+    # Set it so that the 'origin' repo (in test_data) does not have any branches
+    # checked out, allowing 'push' from the /tmp/ clone to work. Do this by checking
+    # out the current commit directly (detached HEAD state)
+    repo.git.checkout(repo.head.commit.hexsha)
+
     # Use the file:// protocol explicitly so that the repo is "cloned" from the local
     # filesystem, and adding file://username:password@src works
     yield "file://" + str(src.resolve())
@@ -71,3 +77,60 @@ def test_can_always_make_edits_to_overleaf_git_paper_remote(temporary_git_paper_
             request_text="Nothin'!",
         )
     )
+
+
+def test_edit_ok_if_different_part_of_doc(temporary_git_paper_repo):
+    # Add a comment at the end. This doesn't overlap with anything in the document, so
+    # it should be immediately accepted.
+    remote = OverleafGitPaperRemote(temporary_git_paper_repo)
+    num_lines = len(remote.get_lines("main.tex"))
+    new_last_line = "\n% --- end of document ---\n"
+    end_of_doc_comment_edit = EditTrigger(
+        input_ranges=[
+            DocumentRange(
+                doc_id="main.tex", revision_id=0, selection=(num_lines, num_lines + 1)
+            )
+        ],
+        output_ranges=[
+            DocumentRange(
+                doc_id="main.tex", revision_id=0, selection=(num_lines, num_lines + 1)
+            )
+        ],
+        request_text=new_last_line,
+    )
+    assert remote.is_edit_ok(end_of_doc_comment_edit)
+    remote.perform_edit(
+        EditResult(
+            type=EditType.replace,
+            range=end_of_doc_comment_edit.output_ranges[0],
+            content=new_last_line,
+        )
+    )
+    assert remote.get_lines("main.tex")[-1].strip() == new_last_line.strip()
+
+
+def test_edit_reject_or_accept_given_delay(temporary_git_paper_repo):
+    """
+    Confirm that edits are rejected if "human edits" happened within the last 10s, but
+    accepted if they happened more than 10s ago.
+    """
+    remote = OverleafGitPaperRemote(temporary_git_paper_repo)
+    # Find the line where the "\title{}" is, and make an edit to it.
+    with open(remote._doc_id_to_path("main.tex"), "r") as f:
+        i_title = next(i for i, line in enumerate(f) if r"\title" in line)
+    title_edit = EditTrigger(
+        input_ranges=[
+            DocumentRange(
+                doc_id="main.tex", revision_id=0, selection=(i_title, i_title + 1)
+            )
+        ],
+        output_ranges=[
+            DocumentRange(
+                doc_id="main.tex", revision_id=0, selection=(i_title, i_title + 1)
+            )
+        ],
+        request_text=r"\title{A much snazzier title}\n",
+    )
+    assert not remote.is_edit_ok(title_edit)
+    time.sleep(10)
+    assert remote.is_edit_ok(title_edit)
