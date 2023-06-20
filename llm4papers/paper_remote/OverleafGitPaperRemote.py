@@ -288,8 +288,18 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         doc_range, text = edit.range, edit.content
         try:
             num_lines = len(self.get_lines(doc_range.doc_id))
-            if any(i < 0 for i in doc_range.selection) or doc_range.selection[1] < doc_range.selection[0] or any(i > len(self.get_lines(doc_range.doc_id)) for i in doc_range.selection):
-                raise IndexError(f"Invalid selection {doc_range.selection} for document {doc_range.doc_id} with {num_lines} lines.")
+            if (
+                any(i < 0 for i in doc_range.selection)
+                or doc_range.selection[1] < doc_range.selection[0]
+                or any(
+                    i > len(self.get_lines(doc_range.doc_id))
+                    for i in doc_range.selection
+                )
+            ):
+                raise IndexError(
+                    f"Invalid selection {doc_range.selection} for document "
+                    f"{doc_range.doc_id} with {num_lines} lines."
+                )
             lines = self.get_lines(doc_range.doc_id)
             lines = (
                 lines[: doc_range.selection[0]]
@@ -332,13 +342,17 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             self._restore_branch = remote._get_repo().active_branch
 
         def __enter__(self):
+            # TODO is there a more gitpython-ic way to do this?
             self._remote._get_repo().git.checkout(self._rewind_commit)
             self._remote._get_repo().git.checkout(b="tmp-edit-branch")
             return self._remote
 
         def __exit__(self, exc_type, exc_val, exc_tb):
+            # TODO - add only modified files not all files
             self._remote._get_repo().git.add(all=True)
             self._remote._get_repo().index.commit(self._message)
+            # TODO - Using branch name here feels like a hack. Can we checkout the
+            #  branch 'object'?
             self._remote._get_repo().git.checkout(self._restore_branch.name)
             try:
                 self._remote._get_repo().git.merge("tmp-edit-branch")
