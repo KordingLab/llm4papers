@@ -60,6 +60,55 @@ def temporary_git_paper_repo():
     _recursive_delete(src / ".git")
 
 
+def test_merge_resolution_from_revision_id(temporary_git_paper_repo):
+    remote = OverleafGitPaperRemote(temporary_git_paper_repo)
+    # Test that we can make *two* edits to different parts of the file by rebasing
+    # the second edit onto the first one.
+
+    # First, add a line early in the paper (after \section{} before text)
+    lines = remote.get_lines("main.tex")
+    i_section = next(i for i, line in enumerate(lines) if r"\section" in line)
+    i_end_doc = next(i for i, line in enumerate(lines) if r"\end{document}" in line)
+
+    edit1 = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(i_section + 2, i_section + 2),
+        ),
+        content="% This is a comment\n% that spans\n% multiple lines\n",
+    )
+
+    # Second, add some stuff at the end of the paper *after* the \end{document}, using
+    # the same revision ID as the first edit. Since the first edit spans multiple lines,
+    # this fails unless we rebase the second edit onto the first one.
+    edit2 = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="main.tex",
+            revision_id=remote.current_revision_id,
+            selection=(i_end_doc + 1, i_end_doc + 1),
+        ),
+        content="\n% This is a comment that should appear AFTER the end-document\n",
+    )
+
+    # Perform the two edits in succession
+    remote.perform_edit(edit1)
+    remote.perform_edit(edit2)
+
+    # Confirm that both edits happened
+    lines = remote.get_lines("main.tex")
+    assert any("multiple lines" in line for line in lines)
+    assert any("appear AFTER" in line for line in lines)
+
+    # Confirm that the second edit was rebased onto the first one by checking that the
+    # comment did indeed appear after the \end{document}
+    i_end_doc_2 = next(i for i, line in enumerate(lines) if r"\end{document}" in line)
+    i_second_edit = next(i for i, line in enumerate(lines) if "appear AFTER" in line)
+    assert i_second_edit > i_end_doc_2
+
+
 def test_can_always_make_edits_to_overleaf_git_paper_remote(temporary_git_paper_repo):
     """
     Confirm that edits can always be made to an in-memory paper remote.
@@ -69,10 +118,18 @@ def test_can_always_make_edits_to_overleaf_git_paper_remote(temporary_git_paper_
     assert remote.is_edit_ok(
         EditTrigger(
             input_ranges=[
-                DocumentRange(doc_id="main.tex", revision_id=0, selection=(0, 1))
+                DocumentRange(
+                    doc_id="main.tex",
+                    revision_id=remote.current_revision_id,
+                    selection=(0, 1),
+                )
             ],
             output_ranges=[
-                DocumentRange(doc_id="main.tex", revision_id=0, selection=(0, 1))
+                DocumentRange(
+                    doc_id="main.tex",
+                    revision_id=remote.current_revision_id,
+                    selection=(0, 1),
+                )
             ],
             request_text="Nothin'!",
         )
@@ -88,12 +145,16 @@ def test_edit_ok_if_different_part_of_doc(temporary_git_paper_repo):
     end_of_doc_comment_edit = EditTrigger(
         input_ranges=[
             DocumentRange(
-                doc_id="main.tex", revision_id=0, selection=(num_lines, num_lines + 1)
+                doc_id="main.tex",
+                revision_id=remote.current_revision_id,
+                selection=(num_lines, num_lines + 1),
             )
         ],
         output_ranges=[
             DocumentRange(
-                doc_id="main.tex", revision_id=0, selection=(num_lines, num_lines + 1)
+                doc_id="main.tex",
+                revision_id=remote.current_revision_id,
+                selection=(num_lines, num_lines + 1),
             )
         ],
         request_text=new_last_line,
@@ -116,17 +177,22 @@ def test_edit_reject_or_accept_given_delay(temporary_git_paper_repo):
     """
     remote = OverleafGitPaperRemote(temporary_git_paper_repo)
     # Find the line where the "\title{}" is, and make an edit to it.
-    with open(remote._doc_id_to_path("main.tex"), "r") as f:
-        i_title = next(i for i, line in enumerate(f) if r"\title" in line)
+    lines = remote.get_lines("main.tex")
+    i_title = next(i for i, line in enumerate(lines) if r"\title" in line)
+
     title_edit = EditTrigger(
         input_ranges=[
             DocumentRange(
-                doc_id="main.tex", revision_id=0, selection=(i_title, i_title + 1)
+                doc_id="main.tex",
+                revision_id=remote.current_revision_id,
+                selection=(i_title, i_title + 1),
             )
         ],
         output_ranges=[
             DocumentRange(
-                doc_id="main.tex", revision_id=0, selection=(i_title, i_title + 1)
+                doc_id="main.tex",
+                revision_id=remote.current_revision_id,
+                selection=(i_title, i_title + 1),
             )
         ],
         request_text=r"\title{A much snazzier title}\n",

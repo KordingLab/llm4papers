@@ -110,8 +110,6 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
     PaperRemote protocol for use by the AI editor.
     """
 
-    current_revision_id: RevisionID
-
     def __init__(self, git_cached_repo: str):
         """
         Saves the git repo to a local temporary directory using gitpython.
@@ -125,6 +123,10 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         self._git_cached_repo_arg = git_cached_repo
         self._cached_repo: Repo | None = None
         self.refresh()
+
+    @property
+    def current_revision_id(self):
+        return self._get_repo().head.commit.hexsha
 
     def _get_repo(self) -> Repo:
         if self._cached_repo is None:
@@ -169,7 +171,6 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
                 f"Latest change at {self._get_repo().head.commit.committed_datetime}"
             )
             logger.info(f"Repo dirty: {self._get_repo().is_dirty()}")
-            self.current_revision_id = self._get_repo().head.commit.hexsha
             try:
                 self._get_repo().git.stash("pop")
             except Exception as e:
@@ -253,22 +254,15 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         """
         logger.info(f"Performing edit {edit} on remote {self._reposlug}")
 
-        if edit.type == EditType.replace:
-            success = self._perform_replace(edit)
-        elif edit.type == EditType.comment:
-            success = self._perform_comment(edit)
-        else:
-            raise ValueError(f"Unknown edit type {edit.type}")
+        with self.rewind(edit.range.revision_id, message="AI edit") as paper:
+            if edit.type == EditType.replace:
+                success = paper._perform_replace(edit)
+            elif edit.type == EditType.comment:
+                success = paper._perform_comment(edit)
+            else:
+                raise ValueError(f"Unknown edit type {edit.type}")
 
         if success:
-            # TODO - apply edit relative to the edit.range.revision_id commit and then
-            #  rebase onto HEAD for poor-man's operational transforms
-            self._get_repo().index.add([self._doc_id_to_path(str(edit.range.doc_id))])
-            self._get_repo().index.commit("AI edit completed.")
-            # Instead of just pushing, we need to rebase and then push.
-            # This is because we want to make sure that the AI edits are always
-            # on top of the stack.
-            self._get_repo().git.pull()
             # TODO: We could do a better job catching WARNs here and then maybe setting
             #  success = False
             self._get_repo().git.push()
@@ -314,3 +308,28 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         # TODO - implement this for real
         logger.info(f"Performing comment edit {edit} on remote {self._reposlug}")
         return True
+
+    def rewind(self, commit: str, message: str):
+        return self.RewindContext(self, commit, message)
+
+    # Create an inner class for "with" semantics so that we can do
+    # `with remote.rewind(commit)` to rewind to a particular commit and play some edits
+    # onto it, then merge when the 'with' context exits.
+    class RewindContext:
+        def __init__(self, remote: "OverleafGitPaperRemote", commit: str, message: str):
+            self._remote = remote
+            self._message = message
+            self._rewind_commit = commit
+            self._restore_branch = remote._get_repo().active_branch
+
+        def __enter__(self):
+            self._remote._get_repo().git.checkout(self._rewind_commit)
+            self._remote._get_repo().git.checkout(b="tmp-edit-branch")
+            return self._remote
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self._remote._get_repo().git.add(all=True)
+            self._remote._get_repo().index.commit(self._message)
+            self._remote._get_repo().git.checkout(self._restore_branch.name)
+            self._remote._get_repo().git.merge("tmp-edit-branch")
+            self._remote._get_repo().git.branch("-D", "tmp-edit-branch")
