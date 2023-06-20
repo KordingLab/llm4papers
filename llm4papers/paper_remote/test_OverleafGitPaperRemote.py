@@ -28,10 +28,15 @@ def temporary_git_paper_repo():
     if git_root.exists():
         _recursive_delete(git_root)
 
+    # Initialize src as a git repo and add user config to prevent git from complaining
+    # about missing user info.
+    repo = git.Repo.init(src, mkdir=False)
+    repo.config_writer().set_value("user", "name", "dummy").release()
+    repo.config_writer().set_value("user", "email", "dummy@agi.ai").release()
+
     # Create initial commit with (mostly empty) main.tex file, then add content to it by
     # copying main-1.tex, main-2.tex, etc to main.tex. The purpose of this is to ensure
     # that the git history has a few commits.
-    repo = git.Repo.init(src, mkdir=False)
     i = 0
     while (file := src / f"main-{i}.tex").exists():
         shutil.copyfile(file, src / "main.tex")

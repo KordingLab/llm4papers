@@ -125,7 +125,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         self.refresh()
 
     @property
-    def current_revision_id(self):
+    def current_revision_id(self) -> RevisionID:
         return self._get_repo().head.commit.hexsha
 
     def _get_repo(self) -> Repo:
