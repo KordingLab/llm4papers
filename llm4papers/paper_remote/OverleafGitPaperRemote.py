@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import datetime
 from urllib.parse import quote
-from git import Repo, GitCommandError, Actor  # type: ignore
+from git import Repo, GitCommandError  # type: ignore
 from typing import Iterable
 import re
 
@@ -106,14 +106,19 @@ def _add_auth(uri: str):
         return uri
 
 
-def _git_author() -> Actor:
+def _add_git_user_from_config(repo: Repo) -> None:
     try:
         from llm4papers.config import OverleafConfig
 
-        return Actor(name="AI Editor", email=OverleafConfig().username)
+        config = OverleafConfig()
+        repo.config_writer().set_value("user", "name", config.git_name).release()
+        repo.config_writer().set_value("user", "email", config.git_email).release()
     except ImportError:
         logger.debug("No config file found, assuming public repo.")
-        return Actor(name="AI Editor", email="unknown@identity.com")
+        repo.config_writer().set_value("user", "name", "no-config").release()
+        repo.config_writer().set_value(
+            "user", "email", "no-config@placeholder.com"
+        ).release()
 
 
 class OverleafGitPaperRemote(MultiDocumentPaperRemote):
@@ -175,6 +180,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             )
 
         self._cached_repo = Repo(f"/tmp/{self._reposlug}")
+        _add_git_user_from_config(self._cached_repo)
 
         logger.info(f"Pulling latest from repo {self._reposlug}.")
         try:
@@ -363,7 +369,6 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             self._remote = remote
             self._message = message
             self._rewind_commit = commit
-            self._auth = _git_author()
 
         def __enter__(self):
             repo = self._remote._get_repo()
@@ -381,7 +386,7 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
             ), "Branch changed unexpectedly mid-`with`"
             # Add files that changed
             repo.index.add([_file for (_file, _), _ in repo.index.entries.items()])
-            repo.index.commit(self._message, author=self._auth, committer=self._auth)
+            repo.index.commit(self._message)
             self._restore_ref.checkout()
             try:
                 repo.git.merge("tmp-edit-branch")
