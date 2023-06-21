@@ -73,7 +73,9 @@ def _too_close_to_human_edits(
         logger.info(f"Last commit was {sec_since_last_commit}s ago, approving edit.")
         return False
 
-    # Get the diff for HEAD~n:
+    # Get the diff for HEAD~n. Note that the gitpython DiffIndex and Diff objects drop the line number info (!) so we
+    # can't use the gitpython object-oriented API to do this. Calling repo.git.diff is pretty much a direct pass-through
+    # to running "git diff HEAD~n -- <filename>" on the command line.
     total_diff = repo.git.diff(f"HEAD~{last_n}", filename, unified=0)
 
     for git_line_range in _diff_to_ranges(total_diff):
@@ -252,6 +254,10 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
         Returns:
             True if the edit was successful, False otherwise
         """
+        if not self._doc_id_to_path(edit.range.doc_id).exists():
+            logger.error(f"Document {edit.range.doc_id} does not exist.")
+            return False
+
         logger.info(f"Performing edit {edit} on remote {self._reposlug}")
 
         try:
@@ -335,30 +341,35 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
     # `with remote.rewind(commit)` to rewind to a particular commit and play some edits
     # onto it, then merge when the 'with' context exits.
     class RewindContext:
+        # TODO - there are tricks in gitpython where an IndexFile can be used to handle changes to files in-memory
+        #  without having to call checkout() and (briefly) modify the state of things on disk. This would be an
+        #  improvement, but would require using the gitpython API more directly inside of perform_edit,
+        #  such as calling git.IndexFile.write() instead of python's open() and write()
+
         def __init__(self, remote: "OverleafGitPaperRemote", commit: str, message: str):
             self._remote = remote
             self._message = message
             self._rewind_commit = commit
-            self._restore_branch = remote._get_repo().active_branch
 
         def __enter__(self):
-            # TODO is there a more gitpython-ic way to do this?
-            self._remote._get_repo().git.checkout(self._rewind_commit)
-            self._remote._get_repo().git.checkout(b="tmp-edit-branch")
+            repo = self._remote._get_repo()
+            self._restore_ref = repo.head.ref
+            self._new_branch = repo.create_head("tmp-edit-branch", commit=self._rewind_commit)
+            self._new_branch.checkout()
             return self._remote
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            # TODO - add only modified files not all files
-            self._remote._get_repo().git.add(all=True)
-            self._remote._get_repo().index.commit(self._message)
-            # TODO - Using branch name here feels like a hack. Can we checkout the
-            #  branch 'object'?
-            self._remote._get_repo().git.checkout(self._restore_branch.name)
+            repo = self._remote._get_repo()
+            assert repo.active_branch == self._new_branch, "Branch changed unexpectedly mid-`with`"
+            # Add files that changed
+            repo.index.add([_file for (_file, _), _ in repo.index.entries.items()])
+            repo.index.commit(self._message)
+            self._restore_ref.checkout()
             try:
-                self._remote._get_repo().git.merge("tmp-edit-branch")
+                repo.git.merge("tmp-edit-branch")
             except GitCommandError as e:
-                # TODO - why does this line fail on GH actions but pass locally?
-                self._remote._get_repo().git.merge("--abort")
+                # Hard reset on failure
+                repo.git.reset("--hard", self._restore_ref.commit.hexsha)
                 raise e
             finally:
-                self._remote._get_repo().git.branch("-D", "tmp-edit-branch")
+                repo.delete_head(self._new_branch, force=True)

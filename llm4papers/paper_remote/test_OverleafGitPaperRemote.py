@@ -187,8 +187,20 @@ def test_recover_gracefully_from_bad_edit(temporary_git_paper_repo):
         content="Hey so am I!\n",
     )
 
-    # Test that we can do bad/good and get just the good edit to succeed
+    # Edit is bad because file "dne.tex" does not exist
+    bad_edit_2 = EditResult(
+        type=EditType.replace,
+        range=DocumentRange(
+            doc_id="dne.tex",
+            revision_id=remote.current_revision_id,
+            selection=(0, 1),
+        ),
+        content="Blah blah blah\n",
+    )
+
+    # Test that we can do bad/bad/good and get just the good edit to succeed
     remote.perform_edit(bad_edit)
+    remote.perform_edit(bad_edit_2)
     remote.perform_edit(good_edit)
 
     lines = remote.get_lines("main.tex")
