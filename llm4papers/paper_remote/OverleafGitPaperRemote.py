@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import datetime
 from urllib.parse import quote
-from git import Repo, GitCommandError  # type: ignore
+from git import Repo, GitCommandError, Actor  # type: ignore
 from typing import Iterable
 import re
 
@@ -73,9 +73,10 @@ def _too_close_to_human_edits(
         logger.info(f"Last commit was {sec_since_last_commit}s ago, approving edit.")
         return False
 
-    # Get the diff for HEAD~n. Note that the gitpython DiffIndex and Diff objects drop the line number info (!) so we
-    # can't use the gitpython object-oriented API to do this. Calling repo.git.diff is pretty much a direct pass-through
-    # to running "git diff HEAD~n -- <filename>" on the command line.
+    # Get the diff for HEAD~n. Note that the gitpython DiffIndex and Diff objects
+    # drop the line number info (!) so we can't use the gitpython object-oriented API
+    # to do this. Calling repo.git.diff is pretty much a direct pass-through to
+    # running "git diff HEAD~n -- <filename>" on the command line.
     total_diff = repo.git.diff(f"HEAD~{last_n}", filename, unified=0)
 
     for git_line_range in _diff_to_ranges(total_diff):
@@ -103,6 +104,16 @@ def _add_auth(uri: str):
         return f"{protocol}{un}:{pw}@{address}"
     else:
         return uri
+
+
+def _git_author() -> Actor:
+    try:
+        from llm4papers.config import OverleafConfig
+
+        return Actor(name="AI Editor", email=OverleafConfig().username)
+    except ImportError:
+        logger.debug("No config file found, assuming public repo.")
+        return Actor(name="AI Editor", email="unknown@identity.com")
 
 
 class OverleafGitPaperRemote(MultiDocumentPaperRemote):
@@ -341,29 +352,36 @@ class OverleafGitPaperRemote(MultiDocumentPaperRemote):
     # `with remote.rewind(commit)` to rewind to a particular commit and play some edits
     # onto it, then merge when the 'with' context exits.
     class RewindContext:
-        # TODO - there are tricks in gitpython where an IndexFile can be used to handle changes to files in-memory
-        #  without having to call checkout() and (briefly) modify the state of things on disk. This would be an
-        #  improvement, but would require using the gitpython API more directly inside of perform_edit,
-        #  such as calling git.IndexFile.write() instead of python's open() and write()
+        # TODO - there are tricks in gitpython where an IndexFile can be used to
+        #  handle changes to files in-memory without having to call checkout() and
+        #  (briefly) modify the state of things on disk. This would be an improvement,
+        #  but would require using the gitpython API more directly inside of
+        #  perform_edit, such as calling git.IndexFile.write() instead of python's
+        #  open() and write()
 
         def __init__(self, remote: "OverleafGitPaperRemote", commit: str, message: str):
             self._remote = remote
             self._message = message
             self._rewind_commit = commit
+            self._auth = _git_author()
 
         def __enter__(self):
             repo = self._remote._get_repo()
             self._restore_ref = repo.head.ref
-            self._new_branch = repo.create_head("tmp-edit-branch", commit=self._rewind_commit)
+            self._new_branch = repo.create_head(
+                "tmp-edit-branch", commit=self._rewind_commit
+            )
             self._new_branch.checkout()
             return self._remote
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             repo = self._remote._get_repo()
-            assert repo.active_branch == self._new_branch, "Branch changed unexpectedly mid-`with`"
+            assert (
+                repo.active_branch == self._new_branch
+            ), "Branch changed unexpectedly mid-`with`"
             # Add files that changed
             repo.index.add([_file for (_file, _), _ in repo.index.entries.items()])
-            repo.index.commit(self._message)
+            repo.index.commit(self._message, author=self._auth, committer=self._auth)
             self._restore_ref.checkout()
             try:
                 repo.git.merge("tmp-edit-branch")
