@@ -7,8 +7,12 @@ class OpenAIConfig(BaseSettings):
 
 
 class OverleafConfig(BaseSettings):
+    # Username and password for logging into your overleaf account
     username: str = "###"
     password: str = "###"
+    # Author name and email that should appear in git history
+    git_name: str = "AI assistant"
+    git_email: str = "dummy@agi.ai"
 
 
 class Settings(BaseSettings):
